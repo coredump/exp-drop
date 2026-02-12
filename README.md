@@ -100,4 +100,4 @@ src/
 
 ## License
 
-MIT
+[MIT](LICENSE) - see [LICENSE](LICENSE) for details.
