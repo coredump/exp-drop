@@ -9,6 +9,7 @@ export class UIRenderer {
   private nextPreviewBg: Graphics;
   private nextPreviewTile: Graphics;
   private nextPreviewLabel: Text;
+  private keybindingsText: Text;
   private nextK: number = 1;
   private gameOverContainer: Container;
   private pauseContainer: Container;
@@ -53,9 +54,23 @@ export class UIRenderer {
       },
     });
 
+    // Keybindings hint (hidden on touch devices)
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    this.keybindingsText = new Text({
+      text: '\u2190\u2192 Move\n\u2193 Drop\nSPACE Hard\nP Pause\nR Reset',
+      style: {
+        fontFamily: '"Press Start 2P", cursive',
+        fontSize: 7,
+        fill: 0x666699,
+        lineHeight: 12,
+      },
+    });
+    this.keybindingsText.visible = !isTouchDevice;
+
     this.nextPreviewContainer.addChild(this.nextPreviewBg);
     this.nextPreviewContainer.addChild(this.nextPreviewLabel);
     this.nextPreviewContainer.addChild(this.nextPreviewTile);
+    this.nextPreviewContainer.addChild(this.keybindingsText);
     this.container.addChild(this.nextPreviewContainer);
 
     this.gameOverContainer = this.createOverlay('GAME OVER', 'Press R to restart');
@@ -150,14 +165,21 @@ export class UIRenderer {
     const tilePixelSize = TILE_SIZE * CELL_SIZE;
     const boxSize = tilePixelSize + 20;
     const tileSize = tilePixelSize - 4;
+    const labelHeight = 18;
 
+    // Draw box below the label
     this.nextPreviewBg.clear();
-    this.nextPreviewBg.roundRect(0, 0, boxSize, boxSize + 25, 8);
+    this.nextPreviewBg.roundRect(0, labelHeight, boxSize, boxSize, 8);
     this.nextPreviewBg.fill(0x120458);  // Deep blue-purple
     this.nextPreviewBg.stroke({ color: 0x00ffff, width: 2 });  // Cyan border
 
+    // Position label above the box
     this.nextPreviewLabel.x = boxSize / 2 - this.nextPreviewLabel.width / 2;
-    this.nextPreviewLabel.y = 5;
+    this.nextPreviewLabel.y = 0;
+
+    // Position keybindings below the box
+    this.keybindingsText.x = 0;
+    this.keybindingsText.y = labelHeight + boxSize + 10;
 
     const color = TILE_COLORS[this.nextK] ?? DEFAULT_TILE_COLOR;
     const value = Math.pow(2, this.nextK);
@@ -165,7 +187,7 @@ export class UIRenderer {
     this.nextPreviewTile.clear();
     this.nextPreviewTile.roundRect(
       boxSize / 2 - tileSize / 2,
-      35 + (boxSize - 25) / 2 - tileSize / 2,
+      labelHeight + boxSize / 2 - tileSize / 2,
       tileSize,
       tileSize,
       12
@@ -188,7 +210,7 @@ export class UIRenderer {
     });
     label.anchor.set(0.5);
     label.x = boxSize / 2;
-    label.y = 35 + (boxSize - 25) / 2;
+    label.y = labelHeight + boxSize / 2;
     this.nextPreviewTile.addChild(label);
   }
 
