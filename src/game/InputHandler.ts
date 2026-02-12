@@ -9,9 +9,9 @@ export class InputHandler {
   private keyMap: Map<string, InputAction> = new Map([
     ['ArrowLeft', 'left'],
     ['ArrowRight', 'right'],
-    ['ArrowDown', 'down'],
+    ['ArrowDown', 'hardDrop'],
     ['KeyJ', 'left'],
-    ['KeyK', 'down'],
+    ['KeyK', 'hardDrop'],
     ['KeyL', 'right'],
     ['Space', 'hardDrop'],
     ['KeyP', 'pause'],

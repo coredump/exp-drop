@@ -3,14 +3,14 @@ import { Tile } from './Tile';
 
 // Base weights for the first few tiles (always available)
 const BASE_WEIGHTS = [
-  { k: 1, weight: 60 },  // 2
-  { k: 2, weight: 30 },  // 4
+  { k: 1, weight: 45 },  // 2
+  { k: 2, weight: 40 },  // 4
 ];
 
 // Weight multiplier for each additional unlocked tier (sliding scale)
 // Higher tiers spawn less frequently
-const TIER_WEIGHT_MULTIPLIER = 0.35;
-const MIN_TIER_WEIGHT = 2;
+const TIER_WEIGHT_MULTIPLIER = 0.5;
+const MIN_TIER_WEIGHT = 5;
 
 export class Spawner {
   private rng: SeededRNG;

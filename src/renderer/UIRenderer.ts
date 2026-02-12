@@ -57,7 +57,7 @@ export class UIRenderer {
     // Keybindings hint (hidden on touch devices)
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     this.keybindingsText = new Text({
-      text: '\u2190\u2192 Move\n\u2193 Drop\nSPACE Hard\nP Pause\nR Reset',
+      text: '\u2190\u2192 / JL Move\n\u2193 / K Drop\nP Pause\nR Reset',
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize: 7,
