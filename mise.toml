@@ -1,0 +1,26 @@
+[tools]
+node = "latest"
+
+[tasks.install]
+description = "Install dependencies"
+run = "npm install"
+
+[tasks.dev]
+description = "Start development server"
+run = "npm run dev"
+
+[tasks.build]
+description = "Build for production"
+run = "npm run build"
+
+[tasks.preview]
+description = "Preview production build"
+run = "npm run preview"
+
+[tasks.typecheck]
+description = "Run TypeScript type checking"
+run = "npx tsc --noEmit"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -rf dist node_modules/.vite"
