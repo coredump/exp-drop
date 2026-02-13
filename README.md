@@ -55,7 +55,7 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
 
 ### Option 1: Download Release
 
-Download the latest release from [Releases](../../releases), extract, and open `index.html` in your browser or serve with any static file server:
+Download the latest release from [Releases](https://github.com/coredump/exp-drop/releases), extract, and open `index.html` in your browser or serve with any static file server:
 
 ```bash
 # Using Python
@@ -68,10 +68,13 @@ npx serve .
 ### Option 2: Docker
 
 ```bash
-# Using Docker Compose
+# Using pre-built image
+docker run -p 8080:80 ghcr.io/coredump/exp-drop:latest
+
+# Or using Docker Compose
 docker compose up
 
-# Or build and run directly
+# Or build locally
 docker build -t exp-drop .
 docker run -p 8080:80 exp-drop
 ```

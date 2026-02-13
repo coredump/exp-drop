@@ -7,7 +7,7 @@ services:
 
   # Alternative: use pre-built image from GitHub Container Registry
   # exp-drop:
-  #   image: ghcr.io/OWNER/exp-drop:latest
+  #   image: ghcr.io/coredump/exp-drop:latest
   #   ports:
   #     - "8080:80"
   #   restart: unless-stopped
