@@ -42,8 +42,7 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
 **Keyboard:**
 - Arrow Left / J: Move left
 - Arrow Right / L: Move right
-- Arrow Down / K: Soft drop
-- Space: Hard drop (instant)
+- Arrow Down / K / Space: Hard drop
 - P / Escape: Pause
 - R: Restart
 
@@ -54,21 +53,38 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
 
 ## Running the Game
 
+### Option 1: Download Release
+
+Download the latest release from [Releases](../../releases), extract, and open `index.html` in your browser or serve with any static file server:
+
 ```bash
-# Install dependencies
-mise run install
+# Using Python
+python -m http.server 8080
 
-# Start development server
-mise run dev
-
-# Build for production
-mise run build
+# Using Node.js
+npx serve .
 ```
 
-Or with npm:
+### Option 2: Docker
+
+```bash
+# Using Docker Compose
+docker compose up
+
+# Or build and run directly
+docker build -t exp-drop .
+docker run -p 8080:80 exp-drop
+```
+
+Then open http://localhost:8080
+
+### Option 3: From Source
+
 ```bash
 npm install
-npm run dev
+npm run dev      # Development server
+npm run build    # Production build
+npm run preview  # Preview production build
 ```
 
 ## Tech Stack

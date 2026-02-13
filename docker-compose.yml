@@ -1,0 +1,13 @@
+services:
+  exp-drop:
+    build: .
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  # Alternative: use pre-built image from GitHub Container Registry
+  # exp-drop:
+  #   image: ghcr.io/OWNER/exp-drop:latest
+  #   ports:
+  #     - "8080:80"
+  #   restart: unless-stopped
