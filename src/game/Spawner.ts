@@ -3,8 +3,8 @@ import { Tile } from './Tile';
 
 // Base weights for the first few tiles (always available)
 const BASE_WEIGHTS = [
-  { k: 1, weight: 45 },  // 2
-  { k: 2, weight: 40 },  // 4
+  { k: 1, weight: 45 }, // 2
+  { k: 2, weight: 40 }, // 4
 ];
 
 // Weight multiplier for each additional unlocked tier (sliding scale)
@@ -14,7 +14,7 @@ const MIN_TIER_WEIGHT = 5;
 
 export class Spawner {
   private rng: SeededRNG;
-  private maxUnlockedK: number = 2;  // Start with 2 and 4 available
+  private maxUnlockedK = 2; // Start with 2 and 4 available
 
   constructor(seed: number = Date.now()) {
     this.rng = new SeededRNG(seed);
@@ -38,16 +38,16 @@ export class Spawner {
 
   private getSpawnWeights(): { k: number; weight: number }[] {
     const weights = [...BASE_WEIGHTS];
-    
+
     // Add weights for unlocked higher tiers
     // Each tier above k=2 gets progressively smaller weights
     let currentWeight = BASE_WEIGHTS[BASE_WEIGHTS.length - 1].weight;
-    
+
     for (let k = 3; k <= this.maxUnlockedK - 1; k++) {
       currentWeight = Math.max(MIN_TIER_WEIGHT, currentWeight * TIER_WEIGHT_MULTIPLIER);
       weights.push({ k, weight: currentWeight });
     }
-    
+
     return weights;
   }
 
@@ -73,9 +73,9 @@ export class Spawner {
   }
 
   previewNextExponent(): number {
-    const currentState = this.rng['state'];
+    const currentState = this.rng.getState();
     const k = this.getNextExponent();
-    this.rng['state'] = currentState;
+    this.rng.setState(currentState);
     return k;
   }
 

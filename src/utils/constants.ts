@@ -17,22 +17,22 @@ export const LOCK_DELAY_MS = 100;
 
 // 80s Neon color palette - maximally distinct colors
 export const TILE_COLORS: Record<number, number> = {
-  1: 0xff00ff,   // 2 - hot magenta
-  2: 0x00ffff,   // 4 - cyan
-  3: 0x39ff14,   // 8 - neon green
-  4: 0xff6600,   // 16 - neon orange
-  5: 0xffff00,   // 32 - yellow
-  6: 0xff0066,   // 64 - hot pink
-  7: 0x00ff99,   // 128 - mint
-  8: 0x9933ff,   // 256 - purple
-  9: 0xff3300,   // 512 - red-orange
-  10: 0x00ccff,  // 1024 - sky blue
-  11: 0xff99cc,  // 2048 - light pink
-  12: 0xccff00,  // 4096 - lime
-  13: 0xff6699,  // 8192 - salmon
-  14: 0x66ffcc,  // 16384 - aqua
-  15: 0xffcc00,  // 32768 - gold
-  16: 0xcc66ff,  // 65536 - lavender
+  1: 0xff00ff, // 2 - hot magenta
+  2: 0x00ffff, // 4 - cyan
+  3: 0x39ff14, // 8 - neon green
+  4: 0xff6600, // 16 - neon orange
+  5: 0xffff00, // 32 - yellow
+  6: 0xff0066, // 64 - hot pink
+  7: 0x00ff99, // 128 - mint
+  8: 0x9933ff, // 256 - purple
+  9: 0xff3300, // 512 - red-orange
+  10: 0x00ccff, // 1024 - sky blue
+  11: 0xff99cc, // 2048 - light pink
+  12: 0xccff00, // 4096 - lime
+  13: 0xff6699, // 8192 - salmon
+  14: 0x66ffcc, // 16384 - aqua
+  15: 0xffcc00, // 32768 - gold
+  16: 0xcc66ff, // 65536 - lavender
 };
 
 export const DEFAULT_TILE_COLOR = 0xe0e0ff;

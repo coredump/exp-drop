@@ -20,7 +20,7 @@ export class Tile {
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize: 16,
-        fill: 0x0d0221,  // Dark text for neon backgrounds
+        fill: 0x0d0221, // Dark text for neon backgrounds
         align: 'center',
       },
     });
@@ -70,7 +70,14 @@ export class Tile {
     this.background.fill(this.color);
 
     this.label.text = this.displayValue.toString();
-    const fontSize = this.displayValue >= 10000 ? 8 : this.displayValue >= 1000 ? 10 : this.displayValue >= 100 ? 12 : 16;
+    const fontSize =
+      this.displayValue >= 10000
+        ? 8
+        : this.displayValue >= 1000
+          ? 10
+          : this.displayValue >= 100
+            ? 12
+            : 16;
     this.label.style.fontSize = fontSize;
   }
 
@@ -79,17 +86,20 @@ export class Tile {
     const startTime = performance.now();
     const originalScale = this.sprite.scale.x;
 
-    const animate = () => {
+    const animate = (): void => {
       const elapsed = performance.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
       // Elastic pop effect - fast expand, bouncy settle
-      const elastic = (t: number) => {
+      const elastic = (t: number): number => {
         const c4 = (2 * Math.PI) / 3;
-        return t === 0 ? 0 : t === 1 ? 1 
-          : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+        return t === 0
+          ? 0
+          : t === 1
+            ? 1
+            : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
       };
-      
+
       const elasticProgress = elastic(progress);
       const scale = originalScale + 0.5 * elasticProgress * (1 - progress * 0.8);
       this.sprite.scale.set(Math.max(originalScale, scale));
@@ -111,13 +121,13 @@ export class Tile {
     const startY = this.sprite.y;
     const startScale = this.sprite.scale.x;
 
-    const animate = () => {
+    const animate = (): void => {
       const elapsed = performance.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
+
       // Fast ease-in (accelerate into target)
       const easeIn = progress * progress * progress;
-      
+
       // Quick scale up at start, then shrink rapidly
       let scale: number;
       if (progress < 0.15) {
@@ -126,11 +136,11 @@ export class Tile {
         const shrinkProgress = (progress - 0.15) / 0.85;
         scale = (startScale + 0.2) * (1 - shrinkProgress);
       }
-      
+
       // Move towards target with acceleration
       this.sprite.x = startX + (targetX - startX) * easeIn;
       this.sprite.y = startY + (targetY - startY) * easeIn;
-      
+
       this.sprite.scale.set(Math.max(0, scale));
       this.sprite.alpha = 1 - progress;
 

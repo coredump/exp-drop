@@ -5,7 +5,7 @@ async function main(): Promise<void> {
   const app = new Application();
 
   await app.init({
-    background: 0x0d0221,  // Deep purple-black for 80s neon
+    background: 0x0d0221, // Deep purple-black for 80s neon
     resizeTo: window,
     antialias: true,
     resolution: window.devicePixelRatio || 1,

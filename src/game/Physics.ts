@@ -65,7 +65,12 @@ export class Physics {
     return true;
   }
 
-  getNeighbors(tile: Tile): { down: Tile | null; left: Tile | null; right: Tile | null; up: Tile | null } {
+  getNeighbors(tile: Tile): {
+    down: Tile | null;
+    left: Tile | null;
+    right: Tile | null;
+    up: Tile | null;
+  } {
     let down: Tile | null = null;
     let left: Tile | null = null;
     let right: Tile | null = null;
@@ -106,17 +111,23 @@ export class Physics {
     const allNeighbors = [neighbors.down, neighbors.left, neighbors.right, neighbors.up];
 
     for (const neighbor of allNeighbors) {
-      if (neighbor && tileA.k === neighbor.k) {
+      if (tileA.k === neighbor?.k) {
         matchingNeighbors.push(neighbor);
       }
     }
 
     if (matchingNeighbors.length === 0) {
-      return { merged: false, removedTiles: [], upgradedTile: null, basePoints: 0, tilesAbsorbed: 0 };
+      return {
+        merged: false,
+        removedTiles: [],
+        upgradedTile: null,
+        basePoints: 0,
+        tilesAbsorbed: 0,
+      };
     }
 
     // Store positions before removing
-    const removedTilesInfo: RemovedTileInfo[] = matchingNeighbors.map(t => ({
+    const removedTilesInfo: RemovedTileInfo[] = matchingNeighbors.map((t) => ({
       tile: t,
       fromX: t.x,
       fromY: t.y,
@@ -151,7 +162,7 @@ export class Physics {
     // Keep applying gravity until nothing moves
     while (moved) {
       moved = false;
-      
+
       // Get all unique tiles, sorted by Y position (bottom first)
       const tiles = this.board.getAllTiles();
       const uniqueTiles = [...new Set(tiles)].sort((a, b) => b.y - a.y);

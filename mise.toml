@@ -17,10 +17,26 @@ run = "npm run build"
 description = "Preview production build"
 run = "npm run preview"
 
+[tasks.test]
+description = "Run tests"
+run = "npm run test"
+
+[tasks.lint]
+description = "Run linter"
+run = "npm run lint"
+
+[tasks.format]
+description = "Format code"
+run = "npm run format"
+
 [tasks.typecheck]
 description = "Run TypeScript type checking"
 run = "npx tsc --noEmit"
 
+[tasks.quality]
+description = "Run all quality checks (typecheck + lint + test)"
+run = "npm run quality"
+
 [tasks.clean]
 description = "Remove build artifacts"
-run = "rm -rf dist node_modules/.vite"
+run = "rm -rf dist node_modules/.vite coverage"

@@ -28,16 +28,16 @@ export class Game {
   private uiRenderer: UIRenderer;
 
   private activeTile: Tile | null = null;
-  private nextK: number = 1;
-  private score: number = 0;
-  private highestTile: number = 2;
+  private nextK = 1;
+  private score = 0;
+  private highestTile = 2;
   private state: GameState = 'playing';
 
-  private lastGravityTime: number = 0;
+  private lastGravityTime = 0;
   private gravityInterval: number = GRAVITY_INTERVAL_MS;
-  private softDropping: boolean = false;
+  private softDropping = false;
 
-  private comboCount: number = 0;
+  private comboCount = 0;
 
   constructor(app: Application, seed?: number) {
     this.app = app;
@@ -71,7 +71,9 @@ export class Game {
   }
 
   private setupInput(): void {
-    this.inputHandler.setCallback((action: InputAction) => this.handleInput(action));
+    this.inputHandler.setCallback((action: InputAction) => {
+      this.handleInput(action);
+    });
     this.inputHandler.enable();
   }
 
@@ -138,7 +140,9 @@ export class Game {
   private hardDrop(): void {
     if (!this.activeTile) return;
 
-    while (this.moveActiveTile(0, TILE_SIZE)) {}
+    while (this.moveActiveTile(0, TILE_SIZE)) {
+      // Keep moving down until blocked
+    }
     this.lockActiveTile();
   }
 
@@ -150,7 +154,7 @@ export class Game {
     const justPlacedTile = this.activeTile;
     this.activeTile = null;
 
-    this.resolveWithAnimation(justPlacedTile);
+    void this.resolveWithAnimation(justPlacedTile);
   }
 
   private async resolveWithAnimation(justPlacedTile: Tile): Promise<void> {
@@ -175,7 +179,7 @@ export class Game {
 
       // Apply gravity to all floating tiles
       const movedTiles = this.physics.applyGravity();
-      
+
       if (movedTiles.length > 0) {
         stable = false;
         await this.delay(30);
@@ -207,12 +211,16 @@ export class Game {
       if (mergeResult.merged) {
         tileActive = true;
         this.comboCount++;
-        
+
         // Calculate points with multipliers
-        const points = this.calculatePoints(mergeResult.basePoints, mergeResult.tilesAbsorbed, this.comboCount);
+        const points = this.calculatePoints(
+          mergeResult.basePoints,
+          mergeResult.tilesAbsorbed,
+          this.comboCount
+        );
         this.score += points;
         this.uiRenderer.updateScore(this.score);
-        
+
         // Show multiplier feedback
         const multiMerge = mergeResult.tilesAbsorbed > 1;
         const combo = this.comboCount > 1;
@@ -246,8 +254,11 @@ export class Game {
     }
   }
 
-  private async animateSingleMerge(merge: { removedTiles: { tile: Tile; fromX: number; fromY: number }[]; upgradedTile: Tile | null; }): Promise<void> {
-    return new Promise(resolve => {
+  private async animateSingleMerge(merge: {
+    removedTiles: { tile: Tile; fromX: number; fromY: number }[];
+    upgradedTile: Tile | null;
+  }): Promise<void> {
+    return new Promise((resolve) => {
       if (!merge.upgradedTile || merge.removedTiles.length === 0) {
         resolve();
         return;
@@ -272,7 +283,7 @@ export class Game {
           if (animationsRemaining === 0) {
             // All tiles sucked in - NOW update the visual to show new value
             upgraded.updateVisual();
-            
+
             // Then pop animation
             upgraded.playMergeAnimation(() => {
               resolve();
@@ -284,18 +295,18 @@ export class Game {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private calculatePoints(basePoints: number, tilesAbsorbed: number, comboCount: number): number {
     // Multi-merge multiplier: absorbing multiple tiles at once
     // 1 tile = 1x, 2 tiles = 2x, 3 tiles = 3x, 4 tiles = 4x
     const multiMergeMultiplier = tilesAbsorbed;
-    
+
     // Combo multiplier: chain merges
     // 1st merge = 1x, 2nd = 1.5x, 3rd = 2x, 4th = 2.5x, etc.
     const comboMultiplier = 1 + (comboCount - 1) * 0.5;
-    
+
     const totalMultiplier = multiMergeMultiplier * comboMultiplier;
     return Math.floor(basePoints * totalMultiplier);
   }
@@ -367,7 +378,7 @@ export class Game {
     this.uiRenderer.updateScore(0);
 
     this.spawner.setSeed(Date.now());
-    this.spawner.resetUnlocks();  // Reset spawn tiers on restart
+    this.spawner.resetUnlocks(); // Reset spawn tiers on restart
     this.nextK = this.spawner.getNextExponent();
     this.uiRenderer.updateNextPreview(this.nextK);
 

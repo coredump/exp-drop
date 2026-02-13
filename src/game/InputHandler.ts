@@ -1,12 +1,10 @@
 export type InputAction = 'left' | 'right' | 'down' | 'hardDrop' | 'pause' | 'restart';
 
-export interface InputCallback {
-  (action: InputAction): void;
-}
+export type InputCallback = (action: InputAction) => void;
 
 export class InputHandler {
   private callback: InputCallback | null = null;
-  private keyMap: Map<string, InputAction> = new Map([
+  private keyMap = new Map<string, InputAction>([
     ['ArrowLeft', 'left'],
     ['ArrowRight', 'right'],
     ['ArrowDown', 'hardDrop'],

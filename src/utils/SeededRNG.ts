@@ -20,4 +20,12 @@ export class SeededRNG {
   setSeed(seed: number): void {
     this.state = seed;
   }
+
+  getState(): number {
+    return this.state;
+  }
+
+  setState(newState: number): void {
+    this.state = newState;
+  }
 }

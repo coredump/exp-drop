@@ -39,8 +39,8 @@ export class BoardRenderer {
 
     // Dark background with neon border
     this.gridGraphics.rect(0, 0, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE);
-    this.gridGraphics.fill(0x120458);  // Deep blue-purple
-    this.gridGraphics.stroke({ color: 0xff00ff, width: 3 });  // Hot magenta border
+    this.gridGraphics.fill(0x120458); // Deep blue-purple
+    this.gridGraphics.stroke({ color: 0xff00ff, width: 3 }); // Hot magenta border
 
     // Neon grid lines
     this.gridGraphics.setStrokeStyle({ color: 0x2d1b69, width: 1 });

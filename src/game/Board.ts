@@ -7,7 +7,7 @@ export class Board {
   constructor() {
     this.grid = [];
     for (let y = 0; y < TOTAL_HEIGHT; y++) {
-      this.grid[y] = new Array(GRID_WIDTH).fill(null);
+      this.grid[y] = new Array<Tile | null>(GRID_WIDTH).fill(null);
     }
   }
 
@@ -63,13 +63,16 @@ export class Board {
   }
 
   isTileInBounds(x: number, y: number): boolean {
-    return x >= 0 && x + TILE_SIZE <= GRID_WIDTH && 
-           this.toGridY(y) >= 0 && this.toGridY(y + TILE_SIZE - 1) < TOTAL_HEIGHT;
+    return (
+      x >= 0 &&
+      x + TILE_SIZE <= GRID_WIDTH &&
+      this.toGridY(y) >= 0 &&
+      this.toGridY(y + TILE_SIZE - 1) < TOTAL_HEIGHT
+    );
   }
 
   isTileInVisibleBounds(x: number, y: number): boolean {
-    return x >= 0 && x + TILE_SIZE <= GRID_WIDTH && 
-           y >= 0 && y + TILE_SIZE <= GRID_HEIGHT;
+    return x >= 0 && x + TILE_SIZE <= GRID_WIDTH && y >= 0 && y + TILE_SIZE <= GRID_HEIGHT;
   }
 
   moveTile(fromX: number, fromY: number, toX: number, toY: number): boolean {
@@ -121,8 +124,9 @@ export class Board {
     const tiles: Tile[] = [];
     for (let y = 0; y < TOTAL_HEIGHT; y++) {
       for (let x = 0; x < GRID_WIDTH; x++) {
-        if (this.grid[y][x]) {
-          tiles.push(this.grid[y][x]!);
+        const tile = this.grid[y][x];
+        if (tile !== null) {
+          tiles.push(tile);
         }
       }
     }

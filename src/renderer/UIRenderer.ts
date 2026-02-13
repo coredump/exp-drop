@@ -10,7 +10,7 @@ export class UIRenderer {
   private nextPreviewTile: Graphics;
   private nextPreviewLabel: Text;
   private keybindingsText: Text;
-  private nextK: number = 1;
+  private nextK = 1;
   private gameOverContainer: Container;
   private pauseContainer: Container;
   private multiplierTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -23,7 +23,7 @@ export class UIRenderer {
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize: 14,
-        fill: 0x00ffff,  // Cyan neon
+        fill: 0x00ffff, // Cyan neon
       },
     });
     this.container.addChild(this.scoreText);
@@ -33,7 +33,7 @@ export class UIRenderer {
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize: 16,
-        fill: 0xff00ff,  // Hot magenta
+        fill: 0xff00ff, // Hot magenta
         stroke: { color: 0x000000, width: 3 },
         align: 'center',
       },
@@ -50,7 +50,7 @@ export class UIRenderer {
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize: 10,
-        fill: 0x39ff14,  // Neon green
+        fill: 0x39ff14, // Neon green
       },
     });
 
@@ -89,8 +89,8 @@ export class UIRenderer {
 
     const bg = new Graphics();
     bg.rect(0, 0, 300, 150);
-    bg.fill({ color: 0x0d0221, alpha: 0.95 });  // Deep purple-black
-    bg.stroke({ color: 0xff00ff, width: 3 });   // Magenta border
+    bg.fill({ color: 0x0d0221, alpha: 0.95 }); // Deep purple-black
+    bg.stroke({ color: 0xff00ff, width: 3 }); // Magenta border
     overlay.addChild(bg);
 
     const titleText = new Text({
@@ -98,7 +98,7 @@ export class UIRenderer {
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize: 18,
-        fill: 0xff00ff,  // Hot magenta
+        fill: 0xff00ff, // Hot magenta
         align: 'center',
       },
     });
@@ -112,7 +112,7 @@ export class UIRenderer {
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize: 10,
-        fill: 0x00ffff,  // Cyan
+        fill: 0x00ffff, // Cyan
         align: 'center',
       },
     });
@@ -124,8 +124,8 @@ export class UIRenderer {
     return overlay;
   }
 
-  private gridCenterX: number = 0;
-  private gridCenterY: number = 0;
+  private gridCenterX = 0;
+  private gridCenterY = 0;
 
   setScorePosition(x: number, y: number): void {
     this.scoreText.x = x;
@@ -170,8 +170,8 @@ export class UIRenderer {
     // Draw box below the label
     this.nextPreviewBg.clear();
     this.nextPreviewBg.roundRect(0, labelHeight, boxSize, boxSize, 8);
-    this.nextPreviewBg.fill(0x120458);  // Deep blue-purple
-    this.nextPreviewBg.stroke({ color: 0x00ffff, width: 2 });  // Cyan border
+    this.nextPreviewBg.fill(0x120458); // Deep blue-purple
+    this.nextPreviewBg.stroke({ color: 0x00ffff, width: 2 }); // Cyan border
 
     // Position label above the box
     this.nextPreviewLabel.x = boxSize / 2 - this.nextPreviewLabel.width / 2;
@@ -205,7 +205,7 @@ export class UIRenderer {
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize,
-        fill: 0x0d0221,  // Dark text for neon backgrounds
+        fill: 0x0d0221, // Dark text for neon backgrounds
       },
     });
     label.anchor.set(0.5);
@@ -238,69 +238,73 @@ export class UIRenderer {
 
   showMultiplier(tilesAbsorbed: number, comboCount: number): void {
     const parts: string[] = [];
-    
+
     if (tilesAbsorbed > 1) {
       parts.push(`${tilesAbsorbed}x MULTI!`);
     }
-    
+
     if (comboCount > 1) {
       const comboMultiplier = 1 + (comboCount - 1) * 0.5;
       parts.push(`${comboCount} COMBO (${comboMultiplier}x)`);
     }
-    
+
     if (parts.length === 0) return;
-    
+
     this.multiplierText.text = parts.join('\n');
     this.multiplierText.x = this.gridCenterX;
     this.multiplierText.y = this.gridCenterY;
     this.multiplierText.alpha = 1;
     this.multiplierText.scale.set(1.5);
-    
+
     // Clear existing timeout
     if (this.multiplierTimeout) {
       clearTimeout(this.multiplierTimeout);
     }
-    
+
     // Blinking + scale animation
     const startTime = performance.now();
     const duration = 1000;
     let animationId: number;
-    
-    const animate = () => {
+
+    const animate = (): void => {
       const elapsed = performance.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
+
       // Scale down from 1.5 to 1.0
       const scale = 1.5 - 0.5 * progress;
       this.multiplierText.scale.set(scale);
-      
+
       // Blink effect (flash between colors)
       const blinkCycle = Math.sin(elapsed * 0.02) * 0.5 + 0.5;
       const color1 = 0xff00ff; // magenta
       const color2 = 0x00ffff; // cyan
-      
+
       // Interpolate colors
-      const r1 = (color1 >> 16) & 0xff, g1 = (color1 >> 8) & 0xff, b1 = color1 & 0xff;
-      const r2 = (color2 >> 16) & 0xff, g2 = (color2 >> 8) & 0xff, b2 = color2 & 0xff;
+      const r1 = (color1 >> 16) & 0xff,
+        g1 = (color1 >> 8) & 0xff,
+        b1 = color1 & 0xff;
+      const r2 = (color2 >> 16) & 0xff,
+        g2 = (color2 >> 8) & 0xff,
+        b2 = color2 & 0xff;
       const r = Math.round(r1 + (r2 - r1) * blinkCycle);
       const g = Math.round(g1 + (g2 - g1) * blinkCycle);
       const b = Math.round(b1 + (b2 - b1) * blinkCycle);
       this.multiplierText.style.fill = (r << 16) | (g << 8) | b;
-      
+
       // Fade out in the last 30%
       if (progress > 0.7) {
-        this.multiplierText.alpha = 1 - ((progress - 0.7) / 0.3);
+        this.multiplierText.alpha = 1 - (progress - 0.7) / 0.3;
       }
-      
+
       if (progress < 1) {
         animationId = requestAnimationFrame(animate);
       } else {
         this.multiplierText.alpha = 0;
       }
     };
-    
+
     animationId = requestAnimationFrame(animate);
-    
+
     // Store timeout to cancel animation if needed
     this.multiplierTimeout = setTimeout(() => {
       cancelAnimationFrame(animationId);
