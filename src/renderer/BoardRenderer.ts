@@ -34,6 +34,11 @@ export class BoardRenderer {
     return GRID_HEIGHT * CELL_SIZE;
   }
 
+  redraw(): void {
+    this.drawGrid();
+    this.updateAllTiles();
+  }
+
   private drawGrid(): void {
     this.gridGraphics.clear();
 

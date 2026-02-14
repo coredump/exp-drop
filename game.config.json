@@ -1,0 +1,10 @@
+{
+  "gridHeight": 14,
+  "spawnWeights": {
+    "base2": 55,
+    "base4": 45,
+    "tierMultiplier": 0.5,
+    "minWeight": 1
+  },
+  "tierWindowSize": 18
+}

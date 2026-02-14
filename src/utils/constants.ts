@@ -1,11 +1,20 @@
 export const GRID_WIDTH = 10; // 5 tiles wide (5 * TILE_SIZE)
-export const GRID_HEIGHT = 12; // 6 tiles tall (6 * TILE_SIZE)
+export let GRID_HEIGHT = 12; // 6 tiles tall (6 * TILE_SIZE) - configurable
 export const SPAWN_BUFFER = 2;
-export const TOTAL_HEIGHT = GRID_HEIGHT + SPAWN_BUFFER;
+export let TOTAL_HEIGHT = GRID_HEIGHT + SPAWN_BUFFER;
 
-export const CELL_SIZE = 32;
+export let CELL_SIZE = 32; // Default, can be updated dynamically
 export const TILE_SIZE = 2; // Tile occupies 2x2 grid cells
 export const GRID_PADDING = 20;
+
+export function setCellSize(size: number): void {
+  CELL_SIZE = size;
+}
+
+export function setGridHeight(height: number): void {
+  GRID_HEIGHT = height;
+  TOTAL_HEIGHT = GRID_HEIGHT + SPAWN_BUFFER;
+}
 
 // Ensure spawn position is aligned to TILE_SIZE grid
 export const SPAWN_X = Math.floor((GRID_WIDTH - TILE_SIZE) / 2 / TILE_SIZE) * TILE_SIZE;
@@ -36,3 +45,10 @@ export const TILE_COLORS: Record<number, number> = {
 };
 
 export const DEFAULT_TILE_COLOR = 0xe0e0ff;
+
+export function formatTileValue(n: number): string {
+  if (n >= 1024) {
+    return `${Math.floor(n / 1024)}k`;
+  }
+  return n.toString();
+}

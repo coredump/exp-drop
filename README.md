@@ -13,6 +13,7 @@ A retro 80s-styled browser puzzle game where tiles with power-of-two values fall
 ### Merge Rules
 
 Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
+
 - The newly placed tile absorbs ALL matching neighbors simultaneously
 - Each absorbed tile increases the value by one level
 - Example: An 8 touching two other 8s becomes 32 (8 -> 16 -> 32)
@@ -40,16 +41,23 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
 ## Controls
 
 **Keyboard:**
+
 - Arrow Left / J: Move left
 - Arrow Right / L: Move right
 - Arrow Down / K / Space: Hard drop
 - P / Escape: Pause
 - R: Restart
 
-**Mobile:**
-- Swipe left/right: Move
-- Swipe down: Hard drop
-- Tap: Pause
+**Mobile Touch:**
+
+- **Tap on board (left/right of tile)**: Tile slides to that column with animation, then drops
+- **Tap on tile**: Soft drop (faster falling)
+- **Tap below tile**: Hard drop
+- **Drag left/right**: Move tile by columns (grid-aligned)
+- **Pause button**: Tap "PAUSE"/"CONTINUE" button in top-right corner
+- **Restart button**: Tap "RESTART" on game over screen
+
+> Note: Touch-to-drop uses a smooth 120ms slide animation. Tiles move in discrete column steps during drag.
 
 ## Running the Game
 
@@ -90,6 +98,34 @@ npm run build    # Production build
 npm run preview  # Preview production build
 ```
 
+## Configuration
+
+Customize game parameters by editing `game.config.json` in the project root:
+
+```json
+{
+  "gridHeight": 12,
+  "spawnWeights": {
+    "base2": 45,
+    "base4": 40,
+    "tierMultiplier": 0.5,
+    "minWeight": 5
+  },
+  "tierWindowSize": 6
+}
+```
+
+| Parameter                     | Description                            |
+| ----------------------------- | -------------------------------------- |
+| `gridHeight`                  | Number of visible rows (default: 12)   |
+| `spawnWeights.base2`          | Spawn weight for 2-tiles (default: 45) |
+| `spawnWeights.base4`          | Spawn weight for 4-tiles (default: 40) |
+| `spawnWeights.tierMultiplier` | Weight decay per tier (default: 0.5)   |
+| `spawnWeights.minWeight`      | Minimum spawn weight (default: 5)      |
+| `tierWindowSize`              | Tiers kept in spawn pool (default: 6)  |
+
+Delete the file to use defaults. Partial configs are supported (unspecified values use defaults).
+
 ## Tech Stack
 
 - **Renderer**: PixiJS 8.x (WebGL/WebGPU)
@@ -100,21 +136,23 @@ npm run preview  # Preview production build
 ## Project Structure
 
 ```
+game.config.json            # Game configuration (optional)
 src/
-  main.ts                 # Entry point
+  main.ts                   # Entry point, loading screen
   game/
-    Game.ts               # Main game controller
-    Board.ts              # Grid state management
-    Tile.ts               # Tile class with animations
-    Physics.ts            # Gravity and merge resolution
-    Spawner.ts            # Dynamic weighted tile spawning
-    InputHandler.ts       # Keyboard and touch input
+    Game.ts                 # Main game controller
+    Board.ts                # Grid state management
+    Tile.ts                 # Tile class with animations
+    Physics.ts              # Gravity and merge resolution
+    Spawner.ts              # Dynamic weighted tile spawning
+    InputHandler.ts         # Keyboard and touch input
   renderer/
-    BoardRenderer.ts      # Grid and tile rendering
-    UIRenderer.ts         # Score, preview, overlays
+    BoardRenderer.ts        # Grid and tile rendering
+    UIRenderer.ts           # Score, preview, overlays
   utils/
-    constants.ts          # Game configuration
-    SeededRNG.ts          # Deterministic random numbers
+    constants.ts            # Grid size, colors, timings
+    config.ts               # Configuration loader
+    SeededRNG.ts            # Deterministic random numbers
 ```
 
 ## License

@@ -2,7 +2,7 @@ import { Application, Ticker } from 'pixi.js';
 import { Board } from './Board';
 import { Tile } from './Tile';
 import { Physics } from './Physics';
-import { Spawner } from './Spawner';
+import { Spawner, SpawnerConfig } from './Spawner';
 import { InputHandler, InputAction } from './InputHandler';
 import { BoardRenderer } from '../renderer/BoardRenderer';
 import { UIRenderer } from '../renderer/UIRenderer';
@@ -11,9 +11,10 @@ import {
   SPAWN_Y,
   GRAVITY_INTERVAL_MS,
   SOFT_DROP_INTERVAL_MS,
-  GRID_PADDING,
   TILE_SIZE,
+  CELL_SIZE,
   GRID_WIDTH,
+  GRID_HEIGHT,
 } from '../utils/constants';
 
 type GameState = 'playing' | 'paused' | 'gameOver' | 'animating';
@@ -38,12 +39,17 @@ export class Game {
   private softDropping = false;
 
   private comboCount = 0;
+  private lastDropX: number = SPAWN_X;
 
-  constructor(app: Application, seed?: number) {
+  // Input cooldown to prevent touch events from UI buttons affecting gameplay
+  private inputCooldownUntil = 0;
+  private readonly INPUT_COOLDOWN_MS = 100;
+
+  constructor(app: Application, seed?: number, spawnerConfig?: SpawnerConfig) {
     this.app = app;
     this.board = new Board();
     this.physics = new Physics(this.board);
-    this.spawner = new Spawner(seed);
+    this.spawner = new Spawner(seed, spawnerConfig);
     this.inputHandler = new InputHandler();
     this.boardRenderer = new BoardRenderer(this.board);
     this.uiRenderer = new UIRenderer();
@@ -60,14 +66,28 @@ export class Game {
     const screenWidth = this.app.screen.width;
     const screenHeight = this.app.screen.height;
 
+    const nextPreviewSize = TILE_SIZE * CELL_SIZE + 20;
+    const previewTotalHeight = 18 + nextPreviewSize;
+    const minTopSpace = previewTotalHeight + 20; // Minimum space for UI above grid
+
     const gridX = (screenWidth - gridWidth) / 2;
-    const gridY = (screenHeight - gridHeight) / 2;
+    // Ensure grid starts below the top UI elements
+    const gridY = Math.max(minTopSpace, (screenHeight - gridHeight) / 2);
+
+    const topBarY = Math.max(10, gridY - previewTotalHeight - 10);
+    const pauseButtonWidth = 80;
 
     this.boardRenderer.setPosition(gridX, gridY);
-    this.uiRenderer.setScorePosition(gridX, gridY - 40);
-    this.uiRenderer.setNextPreviewPosition(gridX + gridWidth + GRID_PADDING, gridY);
+    this.uiRenderer.setScorePosition(gridX + 40, topBarY);
+    this.uiRenderer.setNextPreviewPosition(gridX + (gridWidth - nextPreviewSize) / 2, topBarY);
+    this.uiRenderer.setPauseButtonPosition(gridX + gridWidth - pauseButtonWidth, topBarY);
     this.uiRenderer.setOverlayPosition(gridX + gridWidth / 2, gridY + gridHeight / 2);
     this.uiRenderer.setGridCenter(gridX + gridWidth / 2, gridY + gridHeight / 2);
+
+    // Position keybindings to the right of the grid, vertically centered with grid
+    const keybindingsX = gridX + gridWidth + 20;
+    const keybindingsY = gridY + gridHeight / 2 - 30;
+    this.uiRenderer.setKeybindingsPosition(keybindingsX, keybindingsY);
   }
 
   private setupInput(): void {
@@ -75,6 +95,14 @@ export class Game {
       this.handleInput(action);
     });
     this.inputHandler.enable();
+
+    this.uiRenderer.setPauseButtonCallback(() => {
+      this.togglePause();
+    });
+
+    this.uiRenderer.setRestartButtonCallback(() => {
+      this.restart();
+    });
   }
 
   private handleInput(action: InputAction): void {
@@ -89,6 +117,15 @@ export class Game {
     }
 
     if (this.state !== 'playing' || !this.activeTile) return;
+
+    // Check input cooldown (prevents touch events from UI buttons affecting gameplay)
+    if (performance.now() < this.inputCooldownUntil) return;
+
+    // Handle dropToColumn action (object type with column property)
+    if (typeof action === 'object') {
+      this.dropToColumn(action.column);
+      return;
+    }
 
     switch (action) {
       case 'left':
@@ -126,6 +163,7 @@ export class Game {
 
     this.activeTile.setPosition(newX, newY);
     this.boardRenderer.updateTilePosition(this.activeTile);
+    this.updateTouchZone();
     return true;
   }
 
@@ -146,10 +184,63 @@ export class Game {
     this.lockActiveTile();
   }
 
+  private dropToColumn(targetX: number): void {
+    if (!this.activeTile) return;
+
+    // Clamp target to valid range
+    if (targetX < 0 || targetX + TILE_SIZE > GRID_WIDTH) return;
+
+    // If already at target column, just hard drop
+    if (this.activeTile.x === targetX) {
+      this.hardDrop();
+      return;
+    }
+
+    // Check if horizontal path is clear at current Y position
+    const currentX = this.activeTile.x;
+    const direction = targetX > currentX ? 1 : -1;
+    const canMove =
+      direction > 0
+        ? () => this.physics.canMoveRight(this.activeTile!)
+        : () => this.physics.canMoveLeft(this.activeTile!);
+
+    // Simulate moving step by step to check path
+    const originalX = this.activeTile.x;
+    let pathClear = true;
+
+    // Move in TILE_SIZE increments
+    for (let x = currentX; x !== targetX; x += direction * TILE_SIZE) {
+      if (!canMove()) {
+        pathClear = false;
+        break;
+      }
+      // Temporarily move tile to check next position
+      this.activeTile.setPosition(this.activeTile.x + direction * TILE_SIZE, this.activeTile.y);
+    }
+
+    // Restore original position
+    this.activeTile.setPosition(originalX, this.activeTile.y);
+
+    if (!pathClear) {
+      // Path is blocked, do nothing
+      return;
+    }
+
+    // Animate the horizontal movement
+    this.state = 'animating';
+    this.activeTile.playHorizontalMoveAnimation(targetX, () => {
+      this.boardRenderer.updateTilePosition(this.activeTile!);
+      this.updateTouchZone();
+      this.state = 'playing';
+      this.hardDrop();
+    });
+  }
+
   private lockActiveTile(): void {
     if (!this.activeTile) return;
 
     this.state = 'animating';
+    this.lastDropX = this.activeTile.x;
     this.board.placeTile(this.activeTile);
     const justPlacedTile = this.activeTile;
     this.activeTile = null;
@@ -161,7 +252,12 @@ export class Game {
     // Process the just-placed tile first - it has priority for merging
     await this.resolveTileChain(justPlacedTile);
 
-    this.updateHighestTile();
+    await this.updateHighestTile();
+
+    // Validate nextK in case the threshold changed and it became invalid
+    this.nextK = this.spawner.validateExponent(this.nextK);
+    this.uiRenderer.updateNextPreview(this.nextK);
+
     this.state = 'playing';
     this.spawnTile();
   }
@@ -311,7 +407,7 @@ export class Game {
     return Math.floor(basePoints * totalMultiplier);
   }
 
-  private updateHighestTile(): void {
+  private async updateHighestTile(): Promise<boolean> {
     const tiles = this.board.getAllTiles();
     let maxK = 1;
     for (const tile of tiles) {
@@ -324,11 +420,67 @@ export class Game {
       }
     }
     // Update spawner with current max tile to unlock new spawn tiers
-    this.spawner.updateMaxTile(maxK);
+    const tierChanged = this.spawner.updateMaxTile(maxK);
+
+    // If tier threshold changed, remove lower tier tiles from the board
+    if (tierChanged) {
+      await this.removeLowTierTiles(this.spawner.getMinTierK());
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Remove tiles below the minimum tier threshold from the board.
+   * Excludes the active tile (it can still fall and merge).
+   * After removal, applies gravity and triggers merge logic.
+   */
+  private async removeLowTierTiles(minK: number): Promise<void> {
+    const tiles = this.board.getAllTiles();
+    const tilesToRemove: Tile[] = [];
+
+    // Deduplicate tiles (each tile occupies multiple grid cells)
+    const uniqueTiles = [...new Set(tiles)];
+
+    // Find tiles below threshold (excluding active tile)
+    for (const tile of uniqueTiles) {
+      if (tile.k < minK && tile !== this.activeTile) {
+        tilesToRemove.push(tile);
+      }
+    }
+
+    if (tilesToRemove.length === 0) {
+      return;
+    }
+
+    // Remove from grid and animate disappearance
+    const animationPromises: Promise<void>[] = [];
+
+    for (const tile of tilesToRemove) {
+      // Remove from grid immediately
+      this.board.removeTileFromGrid(tile);
+
+      // Animate the disappearance
+      animationPromises.push(
+        new Promise<void>((resolve) => {
+          tile.playDisappearAnimation(() => {
+            this.boardRenderer.removeTileSprite(tile);
+            tile.destroy();
+            resolve();
+          });
+        })
+      );
+    }
+
+    // Wait for all animations to complete
+    await Promise.all(animationPromises);
+
+    // Apply gravity and check for merges (tiles falling into new positions)
+    await this.resolveTileChain(null);
   }
 
   private spawnTile(): void {
-    if (!this.board.canPlaceTile(SPAWN_X, SPAWN_Y)) {
+    if (!this.board.canPlaceTile(this.lastDropX, SPAWN_Y)) {
       this.gameOver();
       return;
     }
@@ -336,7 +488,7 @@ export class Game {
     // Reset combo when new tile spawns
     this.comboCount = 0;
 
-    this.activeTile = new Tile(this.nextK, SPAWN_X, SPAWN_Y);
+    this.activeTile = new Tile(this.nextK, this.lastDropX, SPAWN_Y);
     this.boardRenderer.addTileSprite(this.activeTile);
     this.boardRenderer.updateTilePosition(this.activeTile);
 
@@ -344,15 +496,18 @@ export class Game {
     this.uiRenderer.updateNextPreview(this.nextK);
 
     this.lastGravityTime = performance.now();
+    this.updateTouchZone();
   }
 
   private togglePause(): void {
     if (this.state === 'playing') {
       this.state = 'paused';
       this.uiRenderer.showPause();
+      this.uiRenderer.updatePauseButtonState(true);
     } else if (this.state === 'paused') {
       this.state = 'playing';
       this.uiRenderer.hidePause();
+      this.uiRenderer.updatePauseButtonState(false);
       this.lastGravityTime = performance.now();
     }
   }
@@ -370,8 +525,12 @@ export class Game {
     this.score = 0;
     this.highestTile = 2;
     this.comboCount = 0;
+    this.lastDropX = SPAWN_X;
     this.state = 'playing';
     this.lastGravityTime = performance.now();
+
+    // Set input cooldown to prevent touch event from restart button affecting new game
+    this.inputCooldownUntil = performance.now() + this.INPUT_COOLDOWN_MS;
 
     this.uiRenderer.hideGameOver();
     this.uiRenderer.hidePause();
@@ -409,5 +568,35 @@ export class Game {
   destroy(): void {
     this.inputHandler.disable();
     this.app.ticker.remove(this.update, this);
+  }
+
+  public relayout(): void {
+    this.setupLayout();
+  }
+
+  private updateTouchZone(): void {
+    if (!this.activeTile) {
+      this.inputHandler.setTouchZone(null);
+      return;
+    }
+
+    const boardX = this.boardRenderer.container.x;
+    const boardY = this.boardRenderer.container.y;
+
+    const tileScreenX = boardX + this.activeTile.x * CELL_SIZE;
+    const tileScreenY = boardY + this.activeTile.y * CELL_SIZE;
+    const tileWidth = TILE_SIZE * CELL_SIZE;
+    const tileHeight = TILE_SIZE * CELL_SIZE;
+
+    this.inputHandler.setTouchZone({
+      tileScreenX,
+      tileScreenY,
+      tileWidth,
+      tileHeight,
+      boardScreenX: boardX,
+      boardScreenY: boardY,
+      boardScreenWidth: GRID_WIDTH * CELL_SIZE,
+      boardScreenHeight: GRID_HEIGHT * CELL_SIZE,
+    });
   }
 }

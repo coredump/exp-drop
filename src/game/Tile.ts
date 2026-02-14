@@ -1,5 +1,11 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import { CELL_SIZE, TILE_SIZE, TILE_COLORS, DEFAULT_TILE_COLOR } from '../utils/constants';
+import {
+  CELL_SIZE,
+  TILE_SIZE,
+  TILE_COLORS,
+  DEFAULT_TILE_COLOR,
+  formatTileValue,
+} from '../utils/constants';
 
 export class Tile {
   public k: number;
@@ -69,15 +75,9 @@ export class Tile {
     this.background.roundRect(-half, -half, pixelSize, pixelSize, 6);
     this.background.fill(this.color);
 
-    this.label.text = this.displayValue.toString();
-    const fontSize =
-      this.displayValue >= 10000
-        ? 8
-        : this.displayValue >= 1000
-          ? 10
-          : this.displayValue >= 100
-            ? 12
-            : 16;
+    const formatted = formatTileValue(this.displayValue);
+    this.label.text = formatted;
+    const fontSize = formatted.length >= 4 ? 10 : formatted.length >= 3 ? 12 : 16;
     this.label.style.fontSize = fontSize;
   }
 
@@ -147,6 +147,58 @@ export class Tile {
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
+        onComplete();
+      }
+    };
+    requestAnimationFrame(animate);
+  }
+
+  playDisappearAnimation(onComplete: () => void): void {
+    const duration = 200;
+    const startTime = performance.now();
+    const startScale = this.sprite.scale.x;
+
+    const animate = (): void => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease-out for smooth fade
+      const easeOut = 1 - Math.pow(1 - progress, 2);
+
+      // Shrink and fade
+      const scale = startScale * (1 - easeOut * 0.5);
+      this.sprite.scale.set(Math.max(0, scale));
+      this.sprite.alpha = 1 - easeOut;
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        onComplete();
+      }
+    };
+    requestAnimationFrame(animate);
+  }
+
+  playHorizontalMoveAnimation(targetGridX: number, onComplete: () => void): void {
+    const duration = 120;
+    const startTime = performance.now();
+    const startX = this.sprite.x;
+    const pixelSize = TILE_SIZE * CELL_SIZE;
+    const targetX = targetGridX * CELL_SIZE + pixelSize / 2;
+
+    const animate = (): void => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease-out for smooth deceleration
+      const easeOut = 1 - Math.pow(1 - progress, 2);
+
+      this.sprite.x = startX + (targetX - startX) * easeOut;
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        this.x = targetGridX;
         onComplete();
       }
     };

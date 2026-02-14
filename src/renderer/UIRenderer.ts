@@ -1,5 +1,11 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import { CELL_SIZE, TILE_SIZE, TILE_COLORS, DEFAULT_TILE_COLOR } from '../utils/constants';
+import {
+  CELL_SIZE,
+  TILE_SIZE,
+  TILE_COLORS,
+  DEFAULT_TILE_COLOR,
+  formatTileValue,
+} from '../utils/constants';
 
 export class UIRenderer {
   public container: Container;
@@ -14,18 +20,27 @@ export class UIRenderer {
   private gameOverContainer: Container;
   private pauseContainer: Container;
   private multiplierTimeout: ReturnType<typeof setTimeout> | null = null;
+  private pauseButton!: Container;
+  private pauseButtonText!: Text;
+  private pauseButtonCallback: (() => void) | null = null;
+  private restartButton: Container;
+  private restartButtonCallback: (() => void) | null = null;
+  private isTouchDevice: boolean;
 
   constructor() {
     this.container = new Container();
 
     this.scoreText = new Text({
-      text: 'Score: 0',
+      text: 'Score\n0',
       style: {
         fontFamily: '"Press Start 2P", cursive',
-        fontSize: 14,
-        fill: 0x00ffff, // Cyan neon
+        fontSize: 12,
+        fill: 0x00ffff,
+        align: 'center',
+        lineHeight: 14,
       },
     });
+    this.scoreText.anchor.set(0.5, 0);
     this.container.addChild(this.scoreText);
 
     this.multiplierText = new Text({
@@ -55,7 +70,7 @@ export class UIRenderer {
     });
 
     // Keybindings hint (hidden on touch devices)
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     this.keybindingsText = new Text({
       text: '\u2190\u2192 / JL Move\n\u2193 / K Drop\nP Pause\nR Reset',
       style: {
@@ -65,21 +80,31 @@ export class UIRenderer {
         lineHeight: 12,
       },
     });
-    this.keybindingsText.visible = !isTouchDevice;
+    this.keybindingsText.visible = !this.isTouchDevice;
 
     this.nextPreviewContainer.addChild(this.nextPreviewBg);
     this.nextPreviewContainer.addChild(this.nextPreviewLabel);
     this.nextPreviewContainer.addChild(this.nextPreviewTile);
-    this.nextPreviewContainer.addChild(this.keybindingsText);
     this.container.addChild(this.nextPreviewContainer);
+    this.container.addChild(this.keybindingsText);
 
-    this.gameOverContainer = this.createOverlay('GAME OVER', 'Press R to restart');
+    const gameOverSubtitle = this.isTouchDevice ? 'Tap to restart' : 'Press R to restart';
+    this.gameOverContainer = this.createOverlay('GAME OVER', gameOverSubtitle);
     this.gameOverContainer.visible = false;
     this.container.addChild(this.gameOverContainer);
 
-    this.pauseContainer = this.createOverlay('PAUSED', 'Press P to resume');
+    const pauseSubtitle = this.isTouchDevice ? 'Tap to resume' : 'Press P to resume';
+    this.pauseContainer = this.createOverlay('PAUSED', pauseSubtitle);
     this.pauseContainer.visible = false;
     this.container.addChild(this.pauseContainer);
+
+    this.pauseButton = this.createPauseButton();
+    this.container.addChild(this.pauseButton);
+    this.pauseButton.visible = this.isTouchDevice;
+
+    this.restartButton = this.createRestartButton();
+    this.container.addChild(this.restartButton);
+    this.restartButton.visible = false;
 
     this.drawNextPreview();
   }
@@ -153,7 +178,7 @@ export class UIRenderer {
   }
 
   updateScore(score: number): void {
-    this.scoreText.text = `Score: ${score.toLocaleString()}`;
+    this.scoreText.text = `Score\n${score.toLocaleString()}`;
   }
 
   updateNextPreview(k: number): void {
@@ -177,10 +202,6 @@ export class UIRenderer {
     this.nextPreviewLabel.x = boxSize / 2 - this.nextPreviewLabel.width / 2;
     this.nextPreviewLabel.y = 0;
 
-    // Position keybindings below the box
-    this.keybindingsText.x = 0;
-    this.keybindingsText.y = labelHeight + boxSize + 10;
-
     const color = TILE_COLORS[this.nextK] ?? DEFAULT_TILE_COLOR;
     const value = Math.pow(2, this.nextK);
 
@@ -199,9 +220,10 @@ export class UIRenderer {
       this.nextPreviewTile.removeChild(existingLabel);
     }
 
-    const fontSize = value >= 10000 ? 8 : value >= 1000 ? 10 : value >= 100 ? 12 : 16;
+    const formatted = formatTileValue(value);
+    const fontSize = formatted.length >= 4 ? 10 : formatted.length >= 3 ? 12 : 16;
     const label = new Text({
-      text: value.toString(),
+      text: formatted,
       style: {
         fontFamily: '"Press Start 2P", cursive',
         fontSize,
@@ -219,13 +241,22 @@ export class UIRenderer {
     titleText.text = 'GAME OVER';
 
     const subtitleText = this.gameOverContainer.children[2] as Text;
-    subtitleText.text = `Score: ${finalScore.toLocaleString()}\nHighest: ${highestTile}\nPress R to restart`;
+    const restartHint = this.isTouchDevice ? 'Tap to restart' : 'Press R to restart';
+    subtitleText.text = `Score: ${finalScore.toLocaleString()}\nHighest: ${highestTile}\n${restartHint}`;
 
     this.gameOverContainer.visible = true;
+    this.pauseButton.visible = false;
+    if (this.isTouchDevice) {
+      this.restartButton.visible = true;
+      this.restartButton.x = this.gameOverContainer.x + 50;
+      this.restartButton.y = this.gameOverContainer.y + 120;
+    }
   }
 
   hideGameOver(): void {
     this.gameOverContainer.visible = false;
+    this.restartButton.visible = false;
+    this.pauseButton.visible = this.isTouchDevice;
   }
 
   showPause(): void {
@@ -310,5 +341,98 @@ export class UIRenderer {
       cancelAnimationFrame(animationId);
       this.multiplierText.alpha = 0;
     }, duration + 100);
+  }
+
+  setPauseButtonPosition(x: number, y: number): void {
+    this.pauseButton.x = x;
+    this.pauseButton.y = y;
+  }
+
+  setKeybindingsPosition(x: number, y: number): void {
+    this.keybindingsText.x = x;
+    this.keybindingsText.y = y;
+  }
+
+  setPauseButtonCallback(callback: () => void): void {
+    this.pauseButtonCallback = callback;
+  }
+
+  setRestartButtonCallback(callback: () => void): void {
+    this.restartButtonCallback = callback;
+  }
+
+  updatePauseButtonState(isPaused: boolean): void {
+    this.pauseButtonText.text = isPaused ? 'CONTINUE' : 'PAUSE';
+    this.pauseButtonText.style.fill = isPaused ? 0x39ff14 : 0x00ffff;
+  }
+
+  private createPauseButton(): Container {
+    const button = new Container();
+    button.eventMode = 'static';
+    button.cursor = 'pointer';
+
+    const bg = new Graphics();
+    bg.rect(0, 0, 80, 30);
+    bg.fill(0x120458);
+    bg.stroke({ color: 0x00ffff, width: 2 });
+    button.addChild(bg);
+
+    this.pauseButtonText = new Text({
+      text: 'PAUSE',
+      style: {
+        fontFamily: '"Press Start 2P", cursive',
+        fontSize: 8,
+        fill: 0x00ffff,
+        align: 'center',
+      },
+    });
+    this.pauseButtonText.anchor.set(0.5);
+    this.pauseButtonText.x = 40;
+    this.pauseButtonText.y = 15;
+    button.addChild(this.pauseButtonText);
+
+    button.on('pointerdown', (event) => {
+      event.stopPropagation();
+      if (this.pauseButtonCallback) {
+        this.pauseButtonCallback();
+      }
+    });
+
+    return button;
+  }
+
+  private createRestartButton(): Container {
+    const button = new Container();
+    button.eventMode = 'static';
+    button.cursor = 'pointer';
+
+    const bg = new Graphics();
+    bg.rect(0, 0, 100, 35);
+    bg.fill(0x120458);
+    bg.stroke({ color: 0x39ff14, width: 2 });
+    button.addChild(bg);
+
+    const text = new Text({
+      text: 'RESTART',
+      style: {
+        fontFamily: '"Press Start 2P", cursive',
+        fontSize: 10,
+        fill: 0x39ff14,
+        align: 'center',
+      },
+    });
+    text.anchor.set(0.5);
+    text.x = 50;
+    text.y = 17.5;
+    button.addChild(text);
+
+    button.on('pointerdown', (event) => {
+      event.stopPropagation();
+      if (this.restartButtonCallback) {
+        this.restartButtonCallback();
+      }
+    });
+
+    return button;
   }
 }
