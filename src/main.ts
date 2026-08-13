@@ -135,6 +135,7 @@ async function startGame(config: GameConfig): Promise<void> {
   const game = new Game(app, undefined, {
     spawnWeights: config.spawnWeights,
     tierWindowSize: config.tierWindowSize,
+    spawnLag: config.spawnLag,
   });
   game.start();
 

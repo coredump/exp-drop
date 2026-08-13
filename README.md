@@ -29,8 +29,11 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
 ### Dynamic Spawning
 
 - Start with only 2s and 4s spawning
-- Higher values unlock as you create them on the board
-- Higher values spawn less frequently (sliding scale)
+- Higher values unlock as you create them on the board — but the top tiers
+  never spawn directly; the last few doublings must be earned by merging
+- Higher values spawn less frequently (sliding scale); small tiles keep
+  spawning no matter how far you progress
+- Game over when any column stacks to the top of the board
 
 ### Scoring
 
@@ -119,18 +122,20 @@ Customize game parameters by editing `game.config.json` in the project root:
     "tierMultiplier": 0.5,
     "minWeight": 5
   },
-  "tierWindowSize": 6
+  "tierWindowSize": 6,
+  "spawnLag": 1
 }
 ```
 
-| Parameter                     | Description                            |
-| ----------------------------- | -------------------------------------- |
-| `gridHeight`                  | Number of visible rows (default: 12)   |
-| `spawnWeights.base2`          | Spawn weight for 2-tiles (default: 45) |
-| `spawnWeights.base4`          | Spawn weight for 4-tiles (default: 40) |
-| `spawnWeights.tierMultiplier` | Weight decay per tier (default: 0.5)   |
-| `spawnWeights.minWeight`      | Minimum spawn weight (default: 5)      |
-| `tierWindowSize`              | Tiers kept in spawn pool (default: 6)  |
+| Parameter                     | Description                                         |
+| ----------------------------- | --------------------------------------------------- |
+| `gridHeight`                  | Number of visible rows (default: 12)                |
+| `spawnWeights.base2`          | Spawn weight for 2-tiles (default: 45)              |
+| `spawnWeights.base4`          | Spawn weight for 4-tiles (default: 40)              |
+| `spawnWeights.tierMultiplier` | Weight decay per tier (default: 0.5)                |
+| `spawnWeights.minWeight`      | Minimum spawn weight (default: 5)                   |
+| `tierWindowSize`              | Tiers kept in spawn pool (default: 6)               |
+| `spawnLag`                    | Top tiers that never spawn, merge-only (default: 1) |
 
 Delete the file to use defaults. Partial configs are supported (unspecified values use defaults).
 

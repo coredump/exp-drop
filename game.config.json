@@ -3,8 +3,9 @@
   "spawnWeights": {
     "base2": 55,
     "base4": 45,
-    "tierMultiplier": 0.5,
+    "tierMultiplier": 0.35,
     "minWeight": 1
   },
-  "tierWindowSize": 18
+  "tierWindowSize": 18,
+  "spawnLag": 3
 }

@@ -5,6 +5,7 @@ import { SpawnWeightsConfig, DEFAULT_CONFIG } from '../utils/config';
 export interface SpawnerConfig {
   spawnWeights: SpawnWeightsConfig;
   tierWindowSize: number;
+  spawnLag?: number;
 }
 
 export class Spawner {
@@ -16,6 +17,7 @@ export class Spawner {
   private readonly tierMultiplier: number;
   private readonly minWeight: number;
   private readonly tierWindowSize: number;
+  private readonly spawnLag: number;
 
   constructor(seed: number = Date.now(), config?: SpawnerConfig) {
     this.rng = new SeededRNG(seed);
@@ -28,6 +30,7 @@ export class Spawner {
     this.tierMultiplier = spawnWeights.tierMultiplier;
     this.minWeight = spawnWeights.minWeight;
     this.tierWindowSize = config?.tierWindowSize ?? DEFAULT_CONFIG.tierWindowSize;
+    this.spawnLag = config?.spawnLag ?? DEFAULT_CONFIG.spawnLag;
   }
 
   setSeed(seed: number): void {
@@ -80,10 +83,12 @@ export class Spawner {
       }
     }
 
-    // Add weights for unlocked higher tiers (also respecting minTierK)
+    // Add weights for unlocked higher tiers (also respecting minTierK).
+    // spawnLag caps how close to the player's best tile spawns can get: the
+    // top `spawnLag` tiers never spawn and must be built by merging.
     let currentWeight = this.baseWeights[this.baseWeights.length - 1].weight;
 
-    for (let k = 3; k <= this.maxUnlockedK - 1; k++) {
+    for (let k = 3; k <= this.maxUnlockedK - this.spawnLag; k++) {
       currentWeight = Math.max(this.minWeight, currentWeight * this.tierMultiplier);
       if (k >= this.minTierK) {
         weights.push({ k, weight: currentWeight });

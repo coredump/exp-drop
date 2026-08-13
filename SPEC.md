@@ -24,12 +24,17 @@ This document is the source of truth for the game implementation.
 ### 2.1 Spawn Position
 
 - Spawn coordinates: `x = SPAWN_X` (4), `y = 0` (centered, aligned to 2x2 grid)
-- Game over if — and only if — that fixed spawn position is blocked
+- Game over when **any** column stacks to the top row — i.e. a settled tile
+  rests at `y = 0` after resolution. (Tiles are 2x2 at even y, so this also
+  covers the spawn cells being blocked.) A tile that touches the top
+  mid-cascade and merges away does not end the game.
 
 ### 2.2 Dynamic Spawn System
 
 - **Base tiles**: 2 and 4 always available
-- **Unlocking**: Higher values unlock when created on the board
+- **Unlocking**: creating a tile of tier `k` allows tiers up to `k - spawnLag`
+  to spawn. The top `spawnLag` tiers never spawn — they must be built by
+  merging. (`spawnLag: 1` is the original "one below max" behavior.)
 - **Sliding scale**: each tier above base has weight = previous × `tierMultiplier`,
   floored at `minWeight`
 - **Tier window**: only the most recent `tierWindowSize` tiers stay in the pool;
@@ -42,15 +47,22 @@ match the other:
 | ---------------- | ----------------------------------------------- | -------------------------- |
 | `base2`          | 45                                              | 55                         |
 | `base4`          | 40                                              | 45                         |
-| `tierMultiplier` | 0.5                                             | 0.5                        |
+| `tierMultiplier` | 0.5                                             | 0.35                       |
 | `minWeight`      | 5                                               | 1                          |
 | `tierWindowSize` | 6                                               | 18                         |
+| `spawnLag`       | 1                                               | 3                          |
 | `gridHeight`     | 12                                              | 14                         |
 
 The shipped `tierWindowSize: 18` is deliberate balance tuning: at 6, low tiers
 were culled fast enough to keep clearing the board, which made the game too
 easy. At 18 the culling path is effectively dormant (it needs a 2^19 tile), and
 that is intended. The code is retained because the threshold is config-driven.
+
+The shipped `spawnLag: 3` + `tierMultiplier: 0.35` slow top-end progression:
+high tiers must be hand-built for the last three doublings, and unlocked mid
+tiers spawn rarely (8 ≈ 13%, 16 ≈ 4%, 32+ ≈ 1% each), so 2s and 4s stay ~80%
+of spawns forever. Simulated effect (greedy merge bot, 60 seeds): turns to
+reach 1024 went from ~378 to ~668 (~1.8x slower) versus lag 1 / 0.5.
 
 ## 3. Movement
 

@@ -481,10 +481,12 @@ export class Game {
   }
 
   private spawnTile(): void {
-    // Game over is decided at the fixed spawn column (SPEC 3.1). This used to
-    // test wherever the previous tile happened to land, which ended runs early
-    // whenever one column stacked up while the rest of the board was empty.
-    if (!this.board.canPlaceTile(SPAWN_X, SPAWN_Y)) {
+    // Game over when ANY column has stacked to the top row (SPEC 2.1). Runs
+    // after resolution has settled, so a tile that briefly touched the top
+    // mid-cascade and merged away does not end the game. Tiles are 2x2 at even
+    // y, so "top row occupied" is exactly "some settled tile rests at y = 0" -
+    // which also covers the spawn cells being blocked.
+    if (this.isTopRowOccupied()) {
       this.gameOver();
       return;
     }
@@ -501,6 +503,13 @@ export class Game {
 
     this.lastGravityTime = performance.now();
     this.updateTouchZone();
+  }
+
+  private isTopRowOccupied(): boolean {
+    for (let x = 0; x < GRID_WIDTH; x++) {
+      if (this.board.getTile(x, SPAWN_Y) !== null) return true;
+    }
+    return false;
   }
 
   private togglePause(): void {

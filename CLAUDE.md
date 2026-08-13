@@ -208,7 +208,8 @@ The game supports external configuration via `game.config.json` in the project r
     "tierMultiplier": 0.5,
     "minWeight": 5
   },
-  "tierWindowSize": 6
+  "tierWindowSize": 6,
+  "spawnLag": 1
 }
 ```
 
@@ -217,9 +218,10 @@ The game supports external configuration via `game.config.json` in the project r
 | `gridHeight`                  | Number of visible rows (not including spawn buffer) | 12      | **14**      |
 | `spawnWeights.base2`          | Spawn weight for k=1 (value 2) tiles                | 45      | **55**      |
 | `spawnWeights.base4`          | Spawn weight for k=2 (value 4) tiles                | 40      | **45**      |
-| `spawnWeights.tierMultiplier` | Weight decay for each additional tier               | 0.5     | 0.5         |
+| `spawnWeights.tierMultiplier` | Weight decay for each additional tier               | 0.5     | **0.35**    |
 | `spawnWeights.minWeight`      | Minimum spawn weight for any tier                   | 5       | **1**       |
 | `tierWindowSize`              | Number of tiers to keep in spawn pool               | 6       | **18**      |
+| `spawnLag`                    | Top tiers below max that never spawn (built only)   | 1       | **3**       |
 
 > ⚠️ **The shipped `game.config.json` deliberately differs from `DEFAULT_CONFIG`.
 > Do not "reconcile" them.** The values in bold are tuned balance, not drift.
@@ -230,6 +232,11 @@ The game supports external configuration via `game.config.json` in the project r
 > `Spawner.calculateMinTier`) is effectively dormant — it would need a 2^19 tile
 > to trigger. That code is kept, not deleted, because the threshold is
 > config-driven and the behavior is one config edit away.
+>
+> `spawnLag: 3` + `tierMultiplier: 0.35` are also intentional (2026-08-13):
+> they slow top-end progression (~1.8x more turns to reach 1024, measured by
+> simulation) and keep 2s/4s at ~80% of spawns forever. The last `spawnLag`
+> doublings can never spawn and must be hand-built by merging.
 >
 > Note this means the tier-removal path is **not exercised in production**, only
 > in `Spawner.test.ts` (which constructs a window of 6 explicitly). Likewise the
@@ -269,9 +276,12 @@ The game supports external configuration via `game.config.json` in the project r
 ### Spawn System (Dynamic Progression)
 
 - **Initial**: Only k=1 (2) and k=2 (4) spawn with configurable weights
-- **Unlock**: When you create a tile of value X, tiles of value X/2 can spawn
+- **Unlock**: Creating a tile of tier k allows tiers up to k − `spawnLag` to
+  spawn; the top `spawnLag` tiers must always be built by merging
 - **Scaling**: Each tier has weight = previous × tierMultiplier (minimum minWeight)
 - **Tier Window**: Only the most recent `tierWindowSize` tiers remain in the spawn pool
+- **Game over**: any column stacking to the top row ends the game (checked
+  after resolution settles, at spawn time)
 
 ```
 Timing constants in src/utils/constants.ts:

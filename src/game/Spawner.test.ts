@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Spawner } from './Spawner';
+import { Spawner, SpawnerConfig } from './Spawner';
 
 describe('Spawner', () => {
   let spawner: Spawner;
@@ -78,6 +78,48 @@ describe('Spawner', () => {
 
       // Should still have access to higher tiers
       expect(spawnsAfter).toEqual(spawnsBefore);
+    });
+  });
+
+  describe('spawnLag', () => {
+    const lagConfig = (spawnLag: number): SpawnerConfig => ({
+      spawnWeights: { base2: 45, base4: 40, tierMultiplier: 0.5, minWeight: 5 },
+      tierWindowSize: 18,
+      spawnLag,
+    });
+
+    it('should default to lag 1 (spawn up to one below max)', () => {
+      const s = new Spawner(42);
+      s.updateMaxTile(4);
+
+      const spawns = new Set<number>();
+      for (let i = 0; i < 300; i++) spawns.add(s.getNextExponent());
+
+      expect(spawns.has(3)).toBe(true);
+      expect(spawns.has(4)).toBe(false);
+    });
+
+    it('should keep the top spawnLag tiers unspawnable', () => {
+      const s = new Spawner(42, lagConfig(3));
+      s.updateMaxTile(6); // best tile 64: with lag 3, only up to k=3 may spawn
+
+      const spawns = new Set<number>();
+      for (let i = 0; i < 500; i++) spawns.add(s.getNextExponent());
+
+      expect(spawns.has(3)).toBe(true);
+      expect(spawns.has(4)).toBe(false);
+      expect(spawns.has(5)).toBe(false);
+      expect(spawns.has(6)).toBe(false);
+    });
+
+    it('should spawn only base tiles until max clears the lag', () => {
+      const s = new Spawner(42, lagConfig(3));
+      s.updateMaxTile(4); // 4 - 3 = 1: no tier past the base pair unlocks
+
+      const spawns = new Set<number>();
+      for (let i = 0; i < 300; i++) spawns.add(s.getNextExponent());
+
+      expect([...spawns].sort()).toEqual([1, 2]);
     });
   });
 

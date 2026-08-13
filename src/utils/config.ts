@@ -9,6 +9,12 @@ export interface GameConfig {
   gridHeight: number;
   spawnWeights: SpawnWeightsConfig;
   tierWindowSize: number;
+  /**
+   * How many tiers below the highest-created tile spawning is capped at.
+   * 1 = tiles up to one below your max can spawn (the original behavior);
+   * higher values force the player to build the top tiers by merging alone.
+   */
+  spawnLag: number;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -20,6 +26,7 @@ export const DEFAULT_CONFIG: GameConfig = {
     minWeight: 5,
   },
   tierWindowSize: 6,
+  spawnLag: 1,
 };
 
 export function deepMerge<T extends object>(defaults: T, partial: Partial<T>): T {
