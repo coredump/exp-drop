@@ -14,6 +14,7 @@ export class Tile {
   public sprite: Container;
   private background: Graphics;
   private label: Text;
+  private glideAnimationId: number | null = null;
 
   constructor(k: number, x: number, y: number) {
     this.k = k;
@@ -58,9 +59,50 @@ export class Tile {
   }
 
   updateSpritePosition(offsetX: number, offsetY: number): void {
+    // Authoritative snap - any in-flight glide would keep writing stale
+    // positions from its rAF callback, so it must die here.
+    this.cancelGlide();
     const pixelSize = TILE_SIZE * CELL_SIZE;
     this.sprite.x = offsetX + this.x * CELL_SIZE + pixelSize / 2;
     this.sprite.y = offsetY + this.y * CELL_SIZE + pixelSize / 2;
+  }
+
+  /**
+   * Smoothly move the sprite to the tile's current grid position instead of
+   * snapping. Used for gravity falls - the logic still moves in discrete
+   * TILE_SIZE steps, only the visual glides. Starting a new glide retargets
+   * from the current visual position, so rapid consecutive steps (cascade
+   * resolution) chain into one continuous motion.
+   */
+  glideToGridPosition(duration = 130): void {
+    this.cancelGlide();
+    const pixelSize = TILE_SIZE * CELL_SIZE;
+    const targetX = this.x * CELL_SIZE + pixelSize / 2;
+    const targetY = this.y * CELL_SIZE + pixelSize / 2;
+    const startX = this.sprite.x;
+    const startY = this.sprite.y;
+    if (startX === targetX && startY === targetY) return;
+
+    const startTime = performance.now();
+    const animate = (): void => {
+      const progress = Math.min((performance.now() - startTime) / duration, 1);
+      const eased = 1 - (1 - progress) * (1 - progress); // quadratic ease-out
+      this.sprite.x = startX + (targetX - startX) * eased;
+      this.sprite.y = startY + (targetY - startY) * eased;
+      if (progress < 1) {
+        this.glideAnimationId = requestAnimationFrame(animate);
+      } else {
+        this.glideAnimationId = null;
+      }
+    };
+    this.glideAnimationId = requestAnimationFrame(animate);
+  }
+
+  private cancelGlide(): void {
+    if (this.glideAnimationId !== null) {
+      cancelAnimationFrame(this.glideAnimationId);
+      this.glideAnimationId = null;
+    }
   }
 
   render(): void {
@@ -201,6 +243,7 @@ export class Tile {
   }
 
   destroy(): void {
+    this.cancelGlide();
     // `style: true` matters: PixiJS's CanvasTextMetrics cache keeps a reference
     // to each TextStyle, and the style's EventEmitter holds the Text back, so
     // without destroying the style every tile ever created stays reachable.

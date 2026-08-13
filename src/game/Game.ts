@@ -150,7 +150,7 @@ export class Game {
     }
   }
 
-  private moveActiveTile(dx: number, dy: number): boolean {
+  private moveActiveTile(dx: number, dy: number, smooth = false): boolean {
     if (!this.activeTile) return false;
 
     const newX = this.activeTile.x + dx;
@@ -167,7 +167,12 @@ export class Game {
     if (dx > 0 && !this.physics.canMoveRight(this.activeTile)) return false;
 
     this.activeTile.setPosition(newX, newY);
-    this.boardRenderer.updateTilePosition(this.activeTile);
+    if (smooth) {
+      // Gravity steps glide; player-initiated moves snap for responsiveness
+      this.activeTile.glideToGridPosition();
+    } else {
+      this.boardRenderer.updateTilePosition(this.activeTile);
+    }
     this.updateTouchZone();
     return true;
   }
@@ -286,8 +291,13 @@ export class Game {
 
       if (movedTiles.length > 0) {
         stable = false;
+        // Glide the movers to their settled positions (applyGravity already
+        // settled them fully, so multi-row falls become one smooth motion).
+        // A snap-all here would cancel the glides mid-flight.
+        for (const movedTile of movedTiles) {
+          movedTile.glideToGridPosition();
+        }
         await this.delay(30);
-        this.boardRenderer.updateAllTiles();
 
         // Each moved tile might trigger new merges
         for (const movedTile of movedTiles) {
@@ -352,8 +362,10 @@ export class Game {
         tile.setPosition(tile.x, tile.y + TILE_SIZE);
         this.board.placeTile(tile);
 
+        // Consecutive step-glides retarget from the current visual position,
+        // so a tile falling several rows reads as one continuous slide.
+        tile.glideToGridPosition();
         await this.delay(30);
-        this.boardRenderer.updateAllTiles();
       }
     }
   }
@@ -585,7 +597,7 @@ export class Game {
     const now = performance.now();
 
     if (now - this.lastGravityTime >= this.gravityInterval) {
-      if (!this.moveActiveTile(0, TILE_SIZE)) {
+      if (!this.moveActiveTile(0, TILE_SIZE, true)) {
         this.lockActiveTile();
       }
       this.lastGravityTime = now;
