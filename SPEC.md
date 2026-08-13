@@ -38,8 +38,15 @@ This document is the source of truth for the game implementation.
 - **Unlocking**: creating a tile of tier `k` allows tiers up to `k - spawnLag`
   to spawn. The top `spawnLag` tiers never spawn — they must be built by
   merging. (`spawnLag: 1` is the original "one below max" behavior.)
-- **Sliding scale**: each tier above base has weight = previous × `tierMultiplier`,
-  floored at `minWeight`
+- **Sliding scale with a moving center**: the weight peak (base2/base4)
+  sits at the pool center, which FOLLOWS PROGRESS: it stays at the bottom
+  early on, then slides upward once the player builds past 256
+  (`POOL_CENTER_LAG` 4 below the spawn cap). Tiers above the center decay by
+  `tierMultiplier`; outgrown tiers below it fade by 0.65 per step, floored
+  at `minWeight` - smalls become a tail, never a flood. Measured (shipped):
+  - start: 2:36% 4:32% 8:18% 16:9% 32:5%
+  - built 512: 2:21% 4:29% 8:25% 16:14% 32:7% 64:4%
+  - built 2048: 2:7% 4:11% 8:17% 16:24% 32:20% 64:11% 128:6% 256:3%
 - **Anti-streak**: the just-spawned value is down-weighted to 45% for the
   next draw, and a value spawns at most **twice in a row** - on the third
   draw it is excluded and the remaining weights renormalized (unless the

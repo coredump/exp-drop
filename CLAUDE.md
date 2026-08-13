@@ -300,7 +300,12 @@ The game supports external configuration via `public/game.config.json`. If the f
   spawn; the top `spawnLag` tiers must always be built by merging
 - **Initial pool**: `initialMaxSpawnTier` floors the spawn cap, so mid tiers
   (shipped: up to 32) appear rarely from the very first drop
-- **Scaling**: Each tier has weight = previous × tierMultiplier (minimum minWeight)
+- **Scaling**: the base2/base4 weight peak sits at a pool center that
+  follows progress (`Spawner.POOL_CENTER_LAG` below the cap, clamped so the
+  early game is unchanged); higher tiers decay by tierMultiplier, outgrown
+  lower tiers fade by `Spawner.BELOW_CENTER_DECAY` (0.65/step, min
+  minWeight). Fixes "still drowning in 2s at 512" without ever removing
+  smalls from the pool
 - **Anti-streak**: the just-spawned value is down-weighted
   (`Spawner.REPEAT_WEIGHT_PENALTY`, 0.45) and spawns at most twice
   consecutively (`Spawner.MAX_SPAWN_REPEAT`); the third draw excludes it and

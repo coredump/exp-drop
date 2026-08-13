@@ -23,6 +23,16 @@ export class Spawner {
    */
   private static readonly REPEAT_WEIGHT_PENALTY = 0.45;
 
+  /**
+   * How far below the spawn cap the weight peak sits. With spawnLag 3 and
+   * this at 4, building a 512 moves the peak from 2s to 4s; building a 2048
+   * centers the stream on 16s/32s. Lower = the pool chases progress harder.
+   */
+  private static readonly POOL_CENTER_LAG = 4;
+
+  /** Per-step fade for tiers below the pool center (the "outgrown" smalls). */
+  private static readonly BELOW_CENTER_DECAY = 0.65;
+
   private rng: SeededRNG;
   private maxUnlockedK = 2; // Start with 2 and 4 available
   private minTierK = 1; // Minimum tier that can spawn (increases when higher tiers unlock)
@@ -94,27 +104,31 @@ export class Spawner {
   }
 
   private getSpawnWeights(): { k: number; weight: number }[] {
-    const weights: { k: number; weight: number }[] = [];
-
-    // Start from baseWeights but filter out tiers below minTierK
-    for (const w of this.baseWeights) {
-      if (w.k >= this.minTierK) {
-        weights.push(w);
-      }
-    }
-
-    // Add weights for higher tiers (also respecting minTierK). Two forces
-    // set the cap: spawnLag keeps the top `spawnLag` tiers of what the
-    // player has CREATED merge-only, while initialMaxSpawnTier floors the
-    // pool so mid tiers can appear (rarely) from the very first spawn.
+    // Two forces set the cap: spawnLag keeps the top `spawnLag` tiers of
+    // what the player has CREATED merge-only, while initialMaxSpawnTier
+    // floors the pool so mid tiers can appear from the very first spawn.
     const spawnCap = Math.max(this.initialMaxSpawnTier, this.maxUnlockedK - this.spawnLag);
-    let currentWeight = this.baseWeights[this.baseWeights.length - 1].weight;
 
-    for (let k = 3; k <= spawnCap; k++) {
-      currentWeight = Math.max(this.minWeight, currentWeight * this.tierMultiplier);
-      if (k >= this.minTierK) {
-        weights.push({ k, weight: currentWeight });
+    // The weight peak FOLLOWS PROGRESS: base2/base4 sit at the pool center
+    // (and center+1), higher tiers decay by tierMultiplier as before, and
+    // tiers below the center fade by BELOW_CENTER_DECAY per step instead of
+    // dominating forever. The clamp keeps the early game identical to the
+    // fixed ladder (center stays at k=1 until the cap exceeds
+    // POOL_CENTER_LAG + 1); once the player builds past that, the stream
+    // shifts upward with them - smalls persist as a tail, not a flood.
+    const center = Math.max(1, spawnCap - Spawner.POOL_CENTER_LAG);
+
+    const weights: { k: number; weight: number }[] = [];
+    for (let k = Math.max(1, this.minTierK); k <= spawnCap; k++) {
+      let weight: number;
+      if (k <= center) {
+        weight = this.baseWeights[0].weight * Spawner.BELOW_CENTER_DECAY ** (center - k);
+      } else if (k === center + 1) {
+        weight = this.baseWeights[1].weight;
+      } else {
+        weight = this.baseWeights[1].weight * this.tierMultiplier ** (k - center - 1);
       }
+      weights.push({ k, weight: Math.max(this.minWeight, weight) });
     }
 
     return weights;

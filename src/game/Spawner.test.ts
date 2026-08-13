@@ -160,6 +160,26 @@ describe('Spawner', () => {
       expect(high / n).toBeGreaterThan(0.06);
     });
 
+    it('should shift the pool center upward as the player progresses', () => {
+      const s = new Spawner(42, cfg(5));
+      s.updateMaxTile(11); // built 2048: cap = 8, center moves to k=4
+      const counts = new Map<number, number>();
+      const n = 5000;
+      for (let i = 0; i < n; i++) {
+        const k = s.getNextExponent();
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+      const share = (k: number): number => (counts.get(k) ?? 0) / n;
+      // The stream now centers on 16/32, not 2/4
+      expect(share(4) + share(5)).toBeGreaterThan(share(1) + share(2));
+      // Outgrown smalls persist as a tail, not a flood
+      expect(share(1)).toBeGreaterThan(0.02);
+      expect(share(1)).toBeLessThan(0.15);
+      // Top spawnable tier present, above-cap absent
+      expect(counts.has(8)).toBe(true);
+      expect(counts.has(9)).toBe(false);
+    });
+
     it('should act as a floor: created tiers still extend the pool past it', () => {
       const s = new Spawner(42, cfg(5));
       s.updateMaxTile(9); // created 512: cap = max(5, 9-3) = 6
