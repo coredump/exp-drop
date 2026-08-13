@@ -33,5 +33,7 @@ Thumbs.db
 # Vite
 *.local
 
-# serena
-.serena
+# Nix
+result
+result-*
+.direnv/

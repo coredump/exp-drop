@@ -199,7 +199,7 @@ Combo resets when a new tile spawns.
 - **Renderer**: PixiJS 8.x (WebGL/WebGPU)
 - **Build**: Vite 6.x
 - **Language**: TypeScript 5.x
-- **Runtime**: Node.js (latest via mise)
+- **Runtime**: Node.js 24 (pinned by the Nix devshell in `flake.nix`)
 
 ### 9.2 Key Constants
 
@@ -214,11 +214,13 @@ SOFT_DROP_INTERVAL_MS = 70;
 
 ## 10. Build Commands
 
+Enter the devshell first (`nix develop`, or automatically via direnv):
+
 ```bash
-mise run install    # Install dependencies
-mise run dev        # Development server
-mise run build      # Production build
-mise run typecheck  # TypeScript validation
-mise run preview    # Preview production build
-mise run clean      # Remove build artifacts
+npm install         # Install dependencies
+npm run dev         # Development server
+npm run build       # Production build
+npm run typecheck   # TypeScript validation
+npm run preview     # Preview production build
+npm run quality     # typecheck + lint + test
 ```

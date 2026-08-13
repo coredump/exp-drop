@@ -1,4 +1,4 @@
-# AGENTS.md - exp^drop
+# CLAUDE.md - exp^drop
 
 > AI-agent documentation for the exp^drop puzzle game
 
@@ -10,16 +10,24 @@
 
 ## Prerequisites
 
-- **Node.js** (latest): Managed via [mise](https://mise.jdx.dev/)
-- **npm**: Comes with Node.js
+- **Nix** with flakes enabled — provides the toolchain via `flake.nix`
+- **Node.js 24** — pinned by the devshell (`nodejs_24`); npm comes with it
 
-Install mise if not already available:
-
-```bash
-curl https://mise.run | sh
-```
+The devshell is the only supported toolchain source. Node is pinned to 24 in
+four places that must stay in sync: `flake.nix`, `.github/workflows/ci.yml`,
+`.github/workflows/deploy.yml`, `.github/workflows/release.yml`, and
+`Dockerfile`.
 
 ## Quick Start
+
+### Enter the devshell
+
+```bash
+nix develop
+```
+
+With [direnv](https://direnv.net/) installed, `direnv allow` once and the shell
+loads automatically on `cd` (see `.envrc`).
 
 ### Single Command Setup
 
@@ -31,8 +39,6 @@ npm install
 
 ```bash
 npm run dev
-# Or via mise:
-mise run dev
 ```
 
 Opens at http://localhost:5173
@@ -41,11 +47,15 @@ Opens at http://localhost:5173
 
 ```bash
 npm run build
-# Or via mise:
-mise run build
 ```
 
 Output in `dist/` directory.
+
+### Running commands without entering the shell
+
+```bash
+nix develop -c npm run quality
+```
 
 ## Development Workflow
 
@@ -54,7 +64,6 @@ Output in `dist/` directory.
 ```bash
 # Type checking
 npm run typecheck
-mise run typecheck
 
 # Linting
 npm run lint          # Check for issues
@@ -66,7 +75,6 @@ npm run format:check  # Check formatting
 
 # Run all quality checks
 npm run quality       # typecheck + lint + test
-mise run quality
 ```
 
 ### Testing
@@ -74,7 +82,6 @@ mise run quality
 ```bash
 # Run tests once
 npm run test
-mise run test
 
 # Watch mode (re-run on changes)
 npm run test:watch
@@ -306,9 +313,19 @@ comboMultiplier = 1 + (comboCount - 1) × 0.5
 
 ### Code Quality
 
-- **Complexity Limit**: Max 10 cyclomatic complexity
-- **Function Length**: Max 50 lines (excluding blanks/comments)
-- **Max Depth**: 3 levels of nesting
+These are **warnings**, not errors — `npm run lint` exits 0 when they trip. See
+`eslint.config.js` for the authoritative values.
+
+- **Complexity Limit**: Max 15 cyclomatic complexity
+- **Function Length**: Max 60 lines (excluding blanks/comments)
+- **Max Depth**: 4 levels of nesting
+
+Test files (`*.test.ts`) have `complexity` and `max-lines-per-function` off.
+
+There are 6 pre-existing warnings on `main` (non-null assertions in `Game.ts`,
+complexity in `InputHandler.getTouchZoneAction` and `Physics.getNeighbors`, and
+the `UIRenderer` constructor length). Don't treat them as a regression you
+introduced.
 
 ### Testing
 
@@ -329,7 +346,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 feat: add new tile animation
 fix: correct merge detection for corner tiles
-docs: update AGENTS.md with spawn system
+docs: update CLAUDE.md with spawn system
 chore: update dependencies
 test: add Physics collision tests
 ```
@@ -339,8 +356,20 @@ test: add Physics collision tests
 ### Pull Requests
 
 - All checks must pass (tests, linting, type checking)
-- Pre-commit hooks enforce code quality
+- Pre-commit hooks enforce code quality locally
 - No force-push to main branch
+
+### CI
+
+`.github/workflows/ci.yml` runs `npm run quality` through the flake
+(`nix develop -c ...`) on every PR and push to main. It is the only workflow
+that runs tests — `deploy.yml` and `release.yml` build without gating.
+
+Reproduce a CI failure exactly:
+
+```bash
+nix develop -c bash -c 'rm -rf node_modules && npm ci && npm run quality'
+```
 
 ## Deployment
 
@@ -419,13 +448,42 @@ npm run test
 git commit
 ```
 
+## Agent Memory (Hindsight)
+
+This repo's long-term memory lives in Hindsight, not in the repo. The
+`hindsight-coding-agents` plugin binds a per-repo bank (`coding-agent::<repo>`)
+automatically — there is nothing to configure in this repository. Server and
+mode come from `~/.hindsight/coding-agent.json` on the developer's machine.
+
+**Order of operations when you need context:**
+
+1. `hindsight_search_knowledge_pages` / `hindsight_read_knowledge_page` — the
+   curated pages (Component map, Conventions and patterns, Core concepts,
+   Key decisions and rationale, Initiatives and enhancements). Read these
+   before re-deriving architecture from source.
+2. `hindsight_reflect` — deep synthesis over raw memory when the pages are too
+   shallow and you need the _why_ behind a decision. Slower; use deliberately.
+3. `hindsight_capture_initiative` — once, before implementing an approved
+   feature. Skip for bug fixes and chores.
+4. `hindsight_ingest_document` — external docs, or a `Correction: <topic>` doc
+   when you verify a memory is stale. Newer facts supersede older ones.
+
+Credit anything you draw from memory with a blockquote:
+`> 🧠 **From Hindsight memory (<page>)** — <facts used>`
+
+Session transcripts are captured automatically at session end — don't retain
+conversation content by hand.
+
+**Not used in this repo**: Serena. It was removed along with its `.serena/`
+memories; those facts now live in Hindsight or in this file.
+
 ## Resources
 
 - **PixiJS Docs**: https://pixijs.com/
 - **Vitest Docs**: https://vitest.dev/
 - **TypeScript Handbook**: https://www.typescriptlang.org/docs/
-- **Factory Droid**: https://factory.ai/
-- **AGENTS.md Standard**: https://docs.factory.ai/factory-docs/agents-md
+- **Nix Flakes**: https://nix.dev/concepts/flakes.html
+- **direnv**: https://direnv.net/
 
 ## Development Tips for AI Agents
 
@@ -441,6 +499,9 @@ git commit
 10. **Font loading**: Use `display=block` to prevent fallback flash
 11. **Responsive layout**: Preview height calculation prevents UI overlap
 12. **Config loading**: Config is async - use `loadConfig()` before game starts
+13. **Use the devshell**: Run commands via `nix develop -c ...` (or with direnv active) so you get the pinned Node 24, not the host's
+14. **Check Hindsight first**: Search the knowledge pages before re-deriving architecture from source
+15. **Keep Node pins in sync**: `flake.nix`, `Dockerfile`, and the three workflows all pin 24
 
 ## License
 

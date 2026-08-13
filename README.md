@@ -91,12 +91,20 @@ Then open http://localhost:8080
 
 ### Option 3: From Source
 
+With [Nix](https://nixos.org/) (recommended — pins Node 24 and everything else):
+
 ```bash
+nix develop      # Enter the devshell
 npm install
 npm run dev      # Development server
 npm run build    # Production build
 npm run preview  # Preview production build
 ```
+
+If you use [direnv](https://direnv.net/), `direnv allow` once and the shell
+loads automatically whenever you `cd` into the repo.
+
+Without Nix, install Node 24 yourself and skip the `nix develop` line.
 
 ## Configuration
 
