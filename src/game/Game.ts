@@ -10,6 +10,7 @@ import {
   SPAWN_X,
   SPAWN_Y,
   GRAVITY_INTERVAL_MS,
+  gravityIntervalMs,
   TILE_SIZE,
   CELL_SIZE,
   GRID_WIDTH,
@@ -31,6 +32,8 @@ export class Game {
   private nextK = 1;
   private score = 0;
   private highestTile = 2;
+  // Highest tier created this run (monotonic). Drives the gravity ramp.
+  private highestK = 2;
   private state: GameState = 'playing';
 
   private lastGravityTime = 0;
@@ -424,6 +427,14 @@ export class Game {
         this.highestTile = value;
       }
     }
+    // Gravity ramp: every new best tier speeds up the fall permanently
+    // (for this run). maxK can drop when tiles merge away, so gate on the
+    // monotonic highestK rather than the board's current maximum.
+    if (maxK > this.highestK) {
+      this.highestK = maxK;
+      this.gravityInterval = gravityIntervalMs(maxK);
+    }
+
     // Update spawner with current max tile to unlock new spawn tiers
     const tierChanged = this.spawner.updateMaxTile(maxK);
 
@@ -544,6 +555,8 @@ export class Game {
     this.activeTile = null;
     this.score = 0;
     this.highestTile = 2;
+    this.highestK = 2;
+    this.gravityInterval = GRAVITY_INTERVAL_MS;
     this.comboCount = 0;
     this.state = 'playing';
     this.lastGravityTime = performance.now();

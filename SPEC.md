@@ -86,7 +86,12 @@ reach 1024 went from ~378 to ~668 (~1.8x slower) versus lag 1 / 0.5.
 
 ### 3.3 Gravity
 
-- Gravity interval: **700ms**
+- Base gravity interval: **700ms**
+- **Ramp**: every tier created above 4 multiplies the interval by **0.9**
+  (permanent for the run), floored at **250ms**. First 8 → 630ms,
+  64 → 459ms, 1024 → 301ms, 4096+ → 250ms. Resets on restart.
+- Driven by the highest tier _created_, not the board's current maximum —
+  merging your best tile away does not slow the game back down.
 
 ### 3.4 Touch Controls
 

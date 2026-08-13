@@ -285,7 +285,13 @@ The game supports external configuration via `game.config.json` in the project r
 
 ```
 Timing constants in src/utils/constants.ts:
-- GRAVITY_INTERVAL_MS = 700      // Drop speed (the only drop speed)
+- GRAVITY_INTERVAL_MS = 700      // Base drop speed (k <= 2)
+- GRAVITY_RAMP_FACTOR = 0.9      // Interval multiplier per tier created
+- GRAVITY_MIN_INTERVAL_MS = 250  // Ramp floor (reached at 4096)
+- gravityIntervalMs(k)           // Pure ramp formula - tested in constants.test.ts
+
+The ramp keys off the highest tier CREATED this run (Game.highestK,
+monotonic), not the board's current max. Resets on restart.
 
 Spawn weights: see the config table above. DEFAULT_CONFIG lives in
 src/utils/config.ts; the shipped overrides live in game.config.json and are

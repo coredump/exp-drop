@@ -16,6 +16,23 @@ export const SPAWN_X = Math.floor((GRID_WIDTH - TILE_SIZE) / 2 / TILE_SIZE) * TI
 export const SPAWN_Y = 0;
 
 export const GRAVITY_INTERVAL_MS = 700;
+export const GRAVITY_MIN_INTERVAL_MS = 250;
+export const GRAVITY_RAMP_FACTOR = 0.9; // speed-up per tier created above k=2
+
+/**
+ * Gravity interval for the highest tier the player has created this run.
+ * Base tiles (k <= 2) fall at GRAVITY_INTERVAL_MS; every tier built above
+ * that multiplies the interval by GRAVITY_RAMP_FACTOR, floored at
+ * GRAVITY_MIN_INTERVAL_MS. 8 -> 630ms, 64 -> 459ms, 1024 -> 301ms,
+ * 4096+ -> 250ms.
+ */
+export function gravityIntervalMs(highestK: number): number {
+  const steps = Math.max(0, highestK - 2);
+  return Math.max(
+    GRAVITY_MIN_INTERVAL_MS,
+    Math.round(GRAVITY_INTERVAL_MS * GRAVITY_RAMP_FACTOR ** steps)
+  );
+}
 
 // 80s Neon color palette - maximally distinct colors
 export const TILE_COLORS: Record<number, number> = {
