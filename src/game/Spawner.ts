@@ -6,6 +6,7 @@ export interface SpawnerConfig {
   spawnWeights: SpawnWeightsConfig;
   tierWindowSize: number;
   spawnLag?: number;
+  initialMaxSpawnTier?: number;
 }
 
 export class Spawner {
@@ -23,6 +24,7 @@ export class Spawner {
   private readonly minWeight: number;
   private readonly tierWindowSize: number;
   private readonly spawnLag: number;
+  private readonly initialMaxSpawnTier: number;
 
   constructor(seed: number = Date.now(), config?: SpawnerConfig) {
     this.rng = new SeededRNG(seed);
@@ -36,6 +38,7 @@ export class Spawner {
     this.minWeight = spawnWeights.minWeight;
     this.tierWindowSize = config?.tierWindowSize ?? DEFAULT_CONFIG.tierWindowSize;
     this.spawnLag = config?.spawnLag ?? DEFAULT_CONFIG.spawnLag;
+    this.initialMaxSpawnTier = config?.initialMaxSpawnTier ?? DEFAULT_CONFIG.initialMaxSpawnTier;
   }
 
   setSeed(seed: number): void {
@@ -90,12 +93,14 @@ export class Spawner {
       }
     }
 
-    // Add weights for unlocked higher tiers (also respecting minTierK).
-    // spawnLag caps how close to the player's best tile spawns can get: the
-    // top `spawnLag` tiers never spawn and must be built by merging.
+    // Add weights for higher tiers (also respecting minTierK). Two forces
+    // set the cap: spawnLag keeps the top `spawnLag` tiers of what the
+    // player has CREATED merge-only, while initialMaxSpawnTier floors the
+    // pool so mid tiers can appear (rarely) from the very first spawn.
+    const spawnCap = Math.max(this.initialMaxSpawnTier, this.maxUnlockedK - this.spawnLag);
     let currentWeight = this.baseWeights[this.baseWeights.length - 1].weight;
 
-    for (let k = 3; k <= this.maxUnlockedK - this.spawnLag; k++) {
+    for (let k = 3; k <= spawnCap; k++) {
       currentWeight = Math.max(this.minWeight, currentWeight * this.tierMultiplier);
       if (k >= this.minTierK) {
         weights.push({ k, weight: currentWeight });

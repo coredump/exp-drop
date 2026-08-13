@@ -32,6 +32,9 @@ This document is the source of truth for the game implementation.
 ### 2.2 Dynamic Spawn System
 
 - **Base tiles**: 2 and 4 always available
+- **Initial pool**: tiers up to `initialMaxSpawnTier` may spawn from the very
+  first drop, at ladder rarity (shipped: 8 ≈ 13%, 16 ≈ 4.5%, 32 ≈ 1.6%). It
+  acts as a floor under the unlock cap
 - **Unlocking**: creating a tile of tier `k` allows tiers up to `k - spawnLag`
   to spawn. The top `spawnLag` tiers never spawn — they must be built by
   merging. (`spawnLag: 1` is the original "one below max" behavior.)
@@ -47,15 +50,16 @@ This document is the source of truth for the game implementation.
 Actual weights are config-driven. Two sets are in play — do not "fix" one to
 match the other:
 
-| Parameter        | `DEFAULT_CONFIG` (used when the file is absent) | Shipped `game.config.json` |
-| ---------------- | ----------------------------------------------- | -------------------------- |
-| `base2`          | 45                                              | 55                         |
-| `base4`          | 40                                              | 45                         |
-| `tierMultiplier` | 0.5                                             | 0.35                       |
-| `minWeight`      | 5                                               | 1                          |
-| `tierWindowSize` | 6                                               | 18                         |
-| `spawnLag`       | 1                                               | 3                          |
-| `gridHeight`     | 12                                              | 14                         |
+| Parameter             | `DEFAULT_CONFIG` (used when the file is absent) | Shipped `game.config.json` |
+| --------------------- | ----------------------------------------------- | -------------------------- |
+| `base2`               | 45                                              | 55                         |
+| `base4`               | 40                                              | 45                         |
+| `tierMultiplier`      | 0.5                                             | 0.35                       |
+| `minWeight`           | 5                                               | 1                          |
+| `tierWindowSize`      | 6                                               | 18                         |
+| `spawnLag`            | 1                                               | 3                          |
+| `initialMaxSpawnTier` | 2                                               | 5                          |
+| `gridHeight`          | 12                                              | 14                         |
 
 The shipped `tierWindowSize: 18` is deliberate balance tuning: at 6, low tiers
 were culled fast enough to keep clearing the board, which made the game too

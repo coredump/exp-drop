@@ -15,6 +15,12 @@ export interface GameConfig {
    * higher values force the player to build the top tiers by merging alone.
    */
   spawnLag: number;
+  /**
+   * Tiers up to this k may spawn from the very start of a run (at ladder
+   * rarity), before anything is unlocked by play. 2 = only the base 2s/4s
+   * (the original behavior). Acts as a floor under the spawnLag cap.
+   */
+  initialMaxSpawnTier: number;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -27,6 +33,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   },
   tierWindowSize: 6,
   spawnLag: 1,
+  initialMaxSpawnTier: 2,
 };
 
 export function deepMerge<T extends object>(defaults: T, partial: Partial<T>): T {

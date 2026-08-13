@@ -7,5 +7,6 @@
     "minWeight": 1
   },
   "tierWindowSize": 18,
-  "spawnLag": 3
+  "spawnLag": 3,
+  "initialMaxSpawnTier": 5
 }

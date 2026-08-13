@@ -222,6 +222,7 @@ The game supports external configuration via `public/game.config.json`. If the f
 | `spawnWeights.minWeight`      | Minimum spawn weight for any tier                   | 5       | **1**       |
 | `tierWindowSize`              | Number of tiers to keep in spawn pool               | 6       | **18**      |
 | `spawnLag`                    | Top tiers below max that never spawn (built only)   | 1       | **3**       |
+| `initialMaxSpawnTier`         | Tiers spawnable from the start of a run             | 2       | **5**       |
 
 > ⚠️ **The shipped `game.config.json` deliberately differs from `DEFAULT_CONFIG`.
 > Do not "reconcile" them.** The values in bold are tuned balance, not drift.
@@ -292,9 +293,11 @@ The game supports external configuration via `public/game.config.json`. If the f
 
 ### Spawn System (Dynamic Progression)
 
-- **Initial**: Only k=1 (2) and k=2 (4) spawn with configurable weights
+- **Base tiles**: k=1 (2) and k=2 (4) with configurable weights, always in the pool
 - **Unlock**: Creating a tile of tier k allows tiers up to k − `spawnLag` to
   spawn; the top `spawnLag` tiers must always be built by merging
+- **Initial pool**: `initialMaxSpawnTier` floors the spawn cap, so mid tiers
+  (shipped: up to 32) appear rarely from the very first drop
 - **Scaling**: Each tier has weight = previous × tierMultiplier (minimum minWeight)
 - **Anti-streak**: a value spawns at most twice consecutively
   (`Spawner.MAX_SPAWN_REPEAT`); the third draw excludes it and renormalizes.

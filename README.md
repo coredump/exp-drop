@@ -28,7 +28,7 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
 
 ### Dynamic Spawning
 
-- Start with only 2s and 4s spawning
+- Mostly 2s and 4s spawn, with rare 8/16/32 surprises from the very start
 - Higher values unlock as you create them on the board — but the top tiers
   never spawn directly; the last few doublings must be earned by merging
 - Higher values spawn less frequently (sliding scale); small tiles keep
@@ -138,6 +138,7 @@ Customize game parameters by editing `public/game.config.json`:
 | `spawnWeights.minWeight`      | Minimum spawn weight (default: 5)                   |
 | `tierWindowSize`              | Tiers kept in spawn pool (default: 6)               |
 | `spawnLag`                    | Top tiers that never spawn, merge-only (default: 1) |
+| `initialMaxSpawnTier`         | Tiers spawnable from the start (default: 2)         |
 
 Delete the file to use defaults. Partial configs are supported (unspecified values use defaults).
 

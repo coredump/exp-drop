@@ -123,6 +123,51 @@ describe('Spawner', () => {
     });
   });
 
+  describe('initialMaxSpawnTier', () => {
+    const cfg = (initialMaxSpawnTier: number): SpawnerConfig => ({
+      spawnWeights: { base2: 55, base4: 45, tierMultiplier: 0.35, minWeight: 1 },
+      tierWindowSize: 18,
+      spawnLag: 3,
+      initialMaxSpawnTier,
+    });
+
+    it('should default to base tiles only (2s and 4s)', () => {
+      const s = new Spawner(42);
+      const spawns = new Set<number>();
+      for (let i = 0; i < 500; i++) spawns.add(s.getNextExponent());
+      expect([...spawns].sort()).toEqual([1, 2]);
+    });
+
+    it('should offer mid tiers from the very first spawn, capped at the tier', () => {
+      const s = new Spawner(42, cfg(5));
+      const spawns = new Set<number>();
+      for (let i = 0; i < 3000; i++) spawns.add(s.getNextExponent());
+      expect(spawns.has(3)).toBe(true); // 8
+      expect(spawns.has(4)).toBe(true); // 16
+      expect(spawns.has(5)).toBe(true); // 32
+      expect(spawns.has(6)).toBe(false); // 64 stays locked
+    });
+
+    it('should keep the initial mid tiers rare', () => {
+      const s = new Spawner(42, cfg(5));
+      let high = 0;
+      const n = 3000;
+      for (let i = 0; i < n; i++) if (s.getNextExponent() >= 4) high++;
+      // 16s + 32s together ~6% by ladder weights; allow slack for the
+      // anti-streak redistribution
+      expect(high / n).toBeLessThan(0.12);
+    });
+
+    it('should act as a floor: created tiers still extend the pool past it', () => {
+      const s = new Spawner(42, cfg(5));
+      s.updateMaxTile(9); // created 512: cap = max(5, 9-3) = 6
+      const spawns = new Set<number>();
+      for (let i = 0; i < 5000; i++) spawns.add(s.getNextExponent());
+      expect(spawns.has(6)).toBe(true); // 64 now spawnable
+      expect(spawns.has(7)).toBe(false); // 128 still merge-only
+    });
+  });
+
   describe('anti-streak', () => {
     it('should never spawn the same value three times in a row', () => {
       for (const seed of [1, 42, 7919, 123456]) {

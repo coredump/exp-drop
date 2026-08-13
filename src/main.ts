@@ -136,6 +136,7 @@ async function startGame(config: GameConfig): Promise<void> {
     spawnWeights: config.spawnWeights,
     tierWindowSize: config.tierWindowSize,
     spawnLag: config.spawnLag,
+    initialMaxSpawnTier: config.initialMaxSpawnTier,
   });
   game.start();
 
