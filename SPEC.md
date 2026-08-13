@@ -37,6 +37,10 @@ This document is the source of truth for the game implementation.
   merging. (`spawnLag: 1` is the original "one below max" behavior.)
 - **Sliding scale**: each tier above base has weight = previous × `tierMultiplier`,
   floored at `minWeight`
+- **Anti-streak**: a value spawns at most **twice in a row**. On the third
+  draw it is excluded and the remaining weights are renormalized (unless the
+  pool has only one tier, where a repeat is unavoidable). The NEXT preview
+  respects this — peeking never changes what will actually spawn.
 - **Tier window**: only the most recent `tierWindowSize` tiers stay in the pool;
   tiles below that threshold are culled from the board
 

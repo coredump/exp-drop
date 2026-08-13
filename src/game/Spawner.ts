@@ -9,9 +9,14 @@ export interface SpawnerConfig {
 }
 
 export class Spawner {
+  /** A value may spawn at most this many times consecutively. */
+  private static readonly MAX_SPAWN_REPEAT = 2;
+
   private rng: SeededRNG;
   private maxUnlockedK = 2; // Start with 2 and 4 available
   private minTierK = 1; // Minimum tier that can spawn (increases when higher tiers unlock)
+  private lastSpawnedK = 0; // 0 = no spawn yet
+  private spawnRun = 0;
 
   private readonly baseWeights: { k: number; weight: number }[];
   private readonly tierMultiplier: number;
@@ -71,6 +76,8 @@ export class Spawner {
   resetUnlocks(): void {
     this.maxUnlockedK = 2;
     this.minTierK = 1;
+    this.lastSpawnedK = 0;
+    this.spawnRun = 0;
   }
 
   private getSpawnWeights(): { k: number; weight: number }[] {
@@ -110,7 +117,30 @@ export class Spawner {
   }
 
   getNextExponent(): number {
-    const weights = this.getSpawnWeights();
+    const k = this.rollExponent();
+    // Track the run so the anti-streak filter can act on the NEXT roll
+    this.spawnRun = k === this.lastSpawnedK ? this.spawnRun + 1 : 1;
+    this.lastSpawnedK = k;
+    return k;
+  }
+
+  /**
+   * Weighted roll with anti-streak: after MAX_SPAWN_REPEAT identical spawns
+   * in a row, that value is excluded from the pool (weights renormalized over
+   * the rest), so the same number never spawns three times consecutively.
+   * Reads run-tracking state but never writes it - previewNextExponent()
+   * depends on that.
+   */
+  private rollExponent(): number {
+    let weights = this.getSpawnWeights();
+
+    if (this.spawnRun >= Spawner.MAX_SPAWN_REPEAT) {
+      const filtered = weights.filter((w) => w.k !== this.lastSpawnedK);
+      // Degenerate configs can leave a single-tier pool; a forced repeat
+      // beats returning nothing.
+      if (filtered.length > 0) weights = filtered;
+    }
+
     const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);
     const roll = this.rng.next() * totalWeight;
     let cumulative = 0;
@@ -132,7 +162,9 @@ export class Spawner {
 
   previewNextExponent(): number {
     const currentState = this.rng.getState();
-    const k = this.getNextExponent();
+    // rollExponent (not getNextExponent): peeking must not advance the
+    // run tracking, or the previewed value and the real draw would diverge.
+    const k = this.rollExponent();
     this.rng.setState(currentState);
     return k;
   }

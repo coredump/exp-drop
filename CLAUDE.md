@@ -296,6 +296,11 @@ The game supports external configuration via `public/game.config.json`. If the f
 - **Unlock**: Creating a tile of tier k allows tiers up to k − `spawnLag` to
   spawn; the top `spawnLag` tiers must always be built by merging
 - **Scaling**: Each tier has weight = previous × tierMultiplier (minimum minWeight)
+- **Anti-streak**: a value spawns at most twice consecutively
+  (`Spawner.MAX_SPAWN_REPEAT`); the third draw excludes it and renormalizes.
+  `previewNextExponent()` deliberately uses the non-mutating roll — if a
+  peek advanced the run tracking, the NEXT preview would show a different
+  tile than the one that spawns
 - **Tier Window**: Only the most recent `tierWindowSize` tiers remain in the spawn pool
 - **Game over**: any column stacking to the top row ends the game (checked
   after resolution settles, at spawn time)

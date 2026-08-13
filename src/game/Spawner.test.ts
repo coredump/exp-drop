@@ -123,6 +123,57 @@ describe('Spawner', () => {
     });
   });
 
+  describe('anti-streak', () => {
+    it('should never spawn the same value three times in a row', () => {
+      for (const seed of [1, 42, 7919, 123456]) {
+        const s = new Spawner(seed);
+        s.updateMaxTile(6); // widen the pool a bit
+        let last = 0;
+        let run = 0;
+        for (let i = 0; i < 1000; i++) {
+          const k = s.getNextExponent();
+          run = k === last ? run + 1 : 1;
+          last = k;
+          expect(run).toBeLessThanOrEqual(2);
+        }
+      }
+    });
+
+    it('should keep both base tiles well represented', () => {
+      const s = new Spawner(42);
+      const counts = new Map<number, number>();
+      for (let i = 0; i < 1000; i++) {
+        const k = s.getNextExponent();
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+      // 45/40 base weights with a run cap of 2 - both should stay near half
+      expect((counts.get(1) ?? 0) / 1000).toBeGreaterThan(0.35);
+      expect((counts.get(2) ?? 0) / 1000).toBeGreaterThan(0.35);
+    });
+
+    it('should keep preview consistent with the actual draw', () => {
+      const s = new Spawner(42);
+      // Exercise across enough draws to cross run-cap boundaries, where a
+      // preview that advanced run tracking would diverge from the real draw.
+      for (let i = 0; i < 200; i++) {
+        const previewed = s.previewNextExponent();
+        const secondPreview = s.previewNextExponent();
+        expect(secondPreview).toBe(previewed); // peeking is idempotent
+        expect(s.getNextExponent()).toBe(previewed);
+      }
+    });
+
+    it('should reset the run tracking on resetUnlocks()', () => {
+      const s = new Spawner(42);
+      s.getNextExponent();
+      s.getNextExponent();
+      s.resetUnlocks();
+      // No third-in-a-row constraint should carry across a restart; we just
+      // assert it still draws from the base pool without throwing.
+      expect([1, 2]).toContain(s.getNextExponent());
+    });
+  });
+
   describe('resetUnlocks()', () => {
     it('should reset to base state (only 2s and 4s)', () => {
       spawner.updateMaxTile(6); // Unlock higher tiers
