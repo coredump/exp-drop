@@ -136,6 +136,12 @@ export class Game {
     // Check input cooldown (prevents touch events from UI buttons affecting gameplay)
     if (performance.now() < this.inputCooldownUntil) return;
 
+    // Gestures must act on the row the player SEES, not the row the logic is
+    // still on. Continuous motion draws the tile up to a full row below its
+    // logical position, so without this a tap could slide the tile into a
+    // column it had visibly passed - and it would pop up-and-over into it.
+    this.syncLogicToVisual();
+
     // Handle dropToColumn action (object type with column property)
     if (typeof action === 'object') {
       this.dropToColumn(action.column);
@@ -152,6 +158,24 @@ export class Game {
       case 'hardDrop':
         this.hardDrop();
         break;
+    }
+  }
+
+  /**
+   * Commit the in-flight gravity step if the tile is visually at least half
+   * a row into it. Called before handling movement input so path checks and
+   * landings match what is on screen. Harmless for hard drop (same column,
+   * same landing) and no-ops while the tile is resting (fraction shows 0).
+   */
+  private syncLogicToVisual(): void {
+    if (!this.activeTile) return;
+    if (!this.physics.canMoveDown(this.activeTile)) return;
+
+    const fraction = (performance.now() - this.lastGravityTime) / this.gravityInterval;
+    if (fraction >= 0.5) {
+      this.activeTile.setPosition(this.activeTile.x, this.activeTile.y + TILE_SIZE);
+      this.lastGravityTime = performance.now();
+      this.updateTouchZone();
     }
   }
 

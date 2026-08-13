@@ -133,6 +133,14 @@ spawn variety now comes from the ladder (measured: 2 ≈ 36%, 4 ≈ 32%,
 - Easing: Quadratic ease-out
 - Game state: `'animating'` during slide (blocks other inputs)
 
+**Visual/logic sync on gestures:**
+
+- Continuous motion draws the falling tile up to one row below its logical
+  position. Before any movement input is applied, if the tile is visually at
+  least half a row into its next step, that step is committed logically
+  first — so path checks and landings match what the player sees, and a
+  column the tile has visibly passed cannot be entered.
+
 **Input Cooldown:**
 
 - **100ms** cooldown after restart to prevent accidental drops
