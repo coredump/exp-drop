@@ -42,6 +42,16 @@ jobs:
       actions: read
       contents: read
       security-events: write
+    with:
+      # Report-only. Findings still land in Security > Code Scanning (SARIF is
+      # uploaded either way), but they no longer fail the run.
+      #
+      # Rationale: every finding here has been a transitive *dev* dependency -
+      # the only runtime dep is pixi.js, and nothing vulnerable reaches dist/.
+      # New devDep CVEs land constantly, so a hard fail meant this workflow sat
+      # red for 11 straight weeks, which trains everyone to ignore it. Triage
+      # the Security tab instead: https://github.com/coredump/exp-drop/security/code-scanning
+      fail-on-vuln: false
 
   gitleaks:
     name: Gitleaks Secret Scanner
