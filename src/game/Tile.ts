@@ -201,6 +201,9 @@ export class Tile {
   }
 
   destroy(): void {
-    this.sprite.destroy({ children: true });
+    // `style: true` matters: PixiJS's CanvasTextMetrics cache keeps a reference
+    // to each TextStyle, and the style's EventEmitter holds the Text back, so
+    // without destroying the style every tile ever created stays reachable.
+    this.sprite.destroy({ children: true, style: true });
   }
 }

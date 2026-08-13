@@ -27,6 +27,7 @@ export class UIRenderer {
   private nextPreviewBg: Graphics;
   private nextPreviewTile: Graphics;
   private nextPreviewLabel: Text;
+  private nextPreviewValueText: Text;
   private keybindingsText: Text;
   private nextK = 1;
   private gameOverContainer: Container;
@@ -71,19 +72,23 @@ export class UIRenderer {
       text: 'NEXT',
       style: { fontFamily: FONT, fontSize: 10, fill: 0x39ff14 }, // Neon green
     });
-
-    // Keybindings hint (hidden on touch devices)
-    this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    this.keybindingsText = new Text({
-      text: '\u2190\u2192 / JL Move\n\u2193 / K Drop\nP Pause\nR Reset',
-      style: { fontFamily: FONT, fontSize: 7, fill: 0x666699, lineHeight: 12 },
+    // Parented to the Container, not to nextPreviewTile (a Graphics) - PixiJS
+    // v8 deprecates adding children to non-Containers.
+    this.nextPreviewValueText = new Text({
+      text: '',
+      style: { fontFamily: FONT, fontSize: 16, fill: 0x0d0221 }, // Dark on neon
     });
-    this.keybindingsText.visible = !this.isTouchDevice;
+    this.nextPreviewValueText.anchor.set(0.5);
 
     this.nextPreviewContainer.addChild(this.nextPreviewBg);
     this.nextPreviewContainer.addChild(this.nextPreviewLabel);
     this.nextPreviewContainer.addChild(this.nextPreviewTile);
+    this.nextPreviewContainer.addChild(this.nextPreviewValueText);
     this.container.addChild(this.nextPreviewContainer);
+
+    // Keybindings hint (hidden on touch devices)
+    this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    this.keybindingsText = this.createKeybindingsText();
     this.container.addChild(this.keybindingsText);
 
     const gameOverSubtitle = this.isTouchDevice ? 'Tap to restart' : 'Press R to restart';
@@ -105,6 +110,15 @@ export class UIRenderer {
     this.restartButton.visible = false;
 
     this.drawNextPreview();
+  }
+
+  private createKeybindingsText(): Text {
+    const text = new Text({
+      text: '←→ / JL Move\n↓ / K Drop\nP Pause\nR Reset',
+      style: { fontFamily: FONT, fontSize: 7, fill: 0x666699, lineHeight: 12 },
+    });
+    text.visible = !this.isTouchDevice;
+    return text;
   }
 
   private createOverlay(title: string, subtitle: string): Container {
@@ -213,28 +227,17 @@ export class UIRenderer {
     );
     this.nextPreviewTile.fill(color);
 
-    // destroy(), not just removeChild() - this runs on every spawn and every
-    // merge resolution, so an undestroyed Text leaks a texture per tile placed.
-    const existingLabel = this.nextPreviewTile.children.find((c) => c instanceof Text);
-    if (existingLabel) {
-      this.nextPreviewTile.removeChild(existingLabel);
-      existingLabel.destroy();
-    }
-
+    // Mutate one persistent Text rather than constructing a new one per call.
+    // This runs on every spawn and every merge resolution, and each `new Text`
+    // brings a fresh TextStyle that PixiJS's CanvasTextMetrics cache retains
+    // by identity - so recreating it leaked ~4 Text objects per restart even
+    // with an explicit destroy().
     const formatted = formatTileValue(value);
-    const fontSize = formatted.length >= 4 ? 10 : formatted.length >= 3 ? 12 : 16;
-    const label = new Text({
-      text: formatted,
-      style: {
-        fontFamily: FONT,
-        fontSize,
-        fill: 0x0d0221, // Dark text for neon backgrounds
-      },
-    });
-    label.anchor.set(0.5);
-    label.x = boxSize / 2;
-    label.y = labelHeight + boxSize / 2;
-    this.nextPreviewTile.addChild(label);
+    this.nextPreviewValueText.text = formatted;
+    this.nextPreviewValueText.style.fontSize =
+      formatted.length >= 4 ? 10 : formatted.length >= 3 ? 12 : 16;
+    this.nextPreviewValueText.x = boxSize / 2;
+    this.nextPreviewValueText.y = labelHeight + boxSize / 2;
   }
 
   showGameOver(finalScore: number, highestTile: number): void {
