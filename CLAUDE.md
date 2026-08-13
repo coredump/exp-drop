@@ -303,8 +303,8 @@ The game supports external configuration via `public/game.config.json`. If the f
 ```
 Timing constants in src/utils/constants.ts:
 - GRAVITY_INTERVAL_MS = 700      // Base drop speed (k <= 2)
-- GRAVITY_RAMP_FACTOR = 0.9      // Interval multiplier per tier created
-- GRAVITY_MIN_INTERVAL_MS = 250  // Ramp floor (reached at 4096)
+- GRAVITY_RAMP_FACTOR = 0.97     // Interval multiplier per tier created
+- GRAVITY_MIN_INTERVAL_MS = 550  // Ramp floor (reached at 1024)
 - gravityIntervalMs(k)           // Pure ramp formula - tested in constants.test.ts
 
 The ramp keys off the highest tier CREATED this run (Game.highestK,
@@ -355,6 +355,29 @@ comboMultiplier = 1 + (comboCount - 1) × 0.5
 - Preview height: `18px (label) + (TILE_SIZE × CELL_SIZE + 20)px (box)`
 - Reserved top: 90px to accommodate variable cell sizes
 - Side margins: 20px
+
+## Design Principle: this is a construction puzzle, not a twitch game
+
+The intended loop is **the board fills up → you merge to reclaim space →
+bigger numbers free more space**. Difficulty must come from that spatial
+squeeze, not from reaction time.
+
+This has a concrete consequence that is easy to get wrong: **hard drop is the
+primary input** (Space / Down / K / most taps), so an engaged player drops as
+soon as they have decided. The gravity interval therefore almost never
+determines _where_ a tile lands — it only caps how long the player may think.
+Speeding it up adds no spatial depth whatsoever; it just puts a shrinking
+clock on the same puzzle.
+
+A steep gravity ramp (0.9/tier down to a 250ms floor) was added and then
+dialled back to 0.97 / 550ms for exactly this reason. Before proposing any
+"difficulty" change, check which dimension it acts on:
+
+- ✅ **Spatial** — grid height, spawn mix, `spawnLag`, tier culling, garbage
+  rows. These change the puzzle.
+- ❌ **Temporal** — gravity speed, input windows, animation timing. These
+  change how fast you must solve it, and pull the game toward a genre it is
+  not trying to be.
 
 ## Code Conventions
 

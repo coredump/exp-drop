@@ -87,11 +87,20 @@ reach 1024 went from ~378 to ~668 (~1.8x slower) versus lag 1 / 0.5.
 ### 3.3 Gravity
 
 - Base gravity interval: **700ms**
-- **Ramp**: every tier created above 4 multiplies the interval by **0.9**
-  (permanent for the run), floored at **250ms**. First 8 → 630ms,
-  64 → 459ms, 1024 → 301ms, 4096+ → 250ms. Resets on restart.
+- **Ramp**: every tier created above 4 multiplies the interval by **0.97**
+  (permanent for the run), floored at **550ms**. First 8 → 679ms,
+  64 → 620ms, 1024+ → 550ms. Resets on restart.
 - Driven by the highest tier _created_, not the board's current maximum —
   merging your best tile away does not slow the game back down.
+
+> **The ramp is deliberately gentle and must stay that way.** exp^drop is a
+> construction puzzle — difficulty comes from running out of space, and the
+> way out is building bigger numbers to reclaim it. Hard drop is the primary
+> input, so the fall interval rarely changes _where_ a tile lands; it only
+> caps how long the player may deliberate. A steep ramp therefore adds no
+> spatial depth, it just converts the game into a reaction test. An earlier
+> 0.9 / 250ms version did exactly that and was dialled back. Total squeeze
+> is ~21%, spread across the entire climb to 1024.
 
 ### 3.4 Touch Controls
 

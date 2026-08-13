@@ -13,9 +13,17 @@ describe('gravityIntervalMs()', () => {
   });
 
   it('should shrink by the ramp factor per tier created', () => {
-    expect(gravityIntervalMs(3)).toBe(630); // first 8: 700 * 0.9
-    expect(gravityIntervalMs(6)).toBe(459); // 64
-    expect(gravityIntervalMs(10)).toBe(301); // 1024
+    expect(gravityIntervalMs(3)).toBe(679); // first 8: 700 * 0.97
+    expect(gravityIntervalMs(6)).toBe(620); // 64
+  });
+
+  it('should stay gentle - never more than a ~25% squeeze', () => {
+    // Guards the design intent: this is a nudge, not a twitch mechanic.
+    // A steep ramp would make the game about reaction time instead of
+    // space management.
+    for (let k = 1; k < 40; k++) {
+      expect(gravityIntervalMs(k)).toBeGreaterThanOrEqual(GRAVITY_INTERVAL_MS * 0.75);
+    }
   });
 
   it('should be monotonically non-increasing in k', () => {
@@ -25,7 +33,7 @@ describe('gravityIntervalMs()', () => {
   });
 
   it('should floor at the minimum interval', () => {
-    expect(gravityIntervalMs(12)).toBe(GRAVITY_MIN_INTERVAL_MS);
+    expect(gravityIntervalMs(10)).toBe(GRAVITY_MIN_INTERVAL_MS); // 1024
     expect(gravityIntervalMs(50)).toBe(GRAVITY_MIN_INTERVAL_MS);
   });
 });
