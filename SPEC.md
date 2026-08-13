@@ -103,6 +103,11 @@ spawn variety now comes from the ladder (measured: 2 ≈ 36%, 4 ≈ 32%,
   64 → 620ms, 1024+ → 550ms. Resets on restart.
 - Driven by the highest tier _created_, not the board's current maximum —
   merging your best tile away does not slow the game back down.
+- **Presentation is continuous**: the active tile's sprite descends smoothly
+  across the whole interval (linear) and eases toward its column
+  (exponential, ~40ms), instead of hopping cell to cell. The logic is
+  untouched — collision, merging and input all stay grid-locked, and the
+  sprite snaps to the exact grid position at lock.
 
 > **The ramp is deliberately gentle and must stay that way.** exp^drop is a
 > construction puzzle — difficulty comes from running out of space, and the

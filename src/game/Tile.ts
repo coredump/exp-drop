@@ -105,6 +105,19 @@ export class Tile {
     }
   }
 
+  /**
+   * Place the sprite at an arbitrary pixel position (top-left of the tile in
+   * grid space). Drives the continuous-motion presentation of the active
+   * tile, where the visual position is interpolated every frame rather than
+   * living on the grid.
+   */
+  setVisualPosition(pixelX: number, pixelY: number): void {
+    this.cancelGlide();
+    const half = (TILE_SIZE * CELL_SIZE) / 2;
+    this.sprite.x = pixelX + half;
+    this.sprite.y = pixelY + half;
+  }
+
   render(): void {
     const pixelSize = TILE_SIZE * CELL_SIZE - 4;
     const half = pixelSize / 2;

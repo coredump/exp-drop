@@ -51,6 +51,11 @@ export class Game {
   private inputCooldownUntil = 0;
   private readonly INPUT_COOLDOWN_MS = 100;
 
+  // Visual x of the active tile in pixels (eases toward the logical column)
+  private activeVisualX = 0;
+  // Frozen fall progress while paused, so resuming doesn't rewind the tile
+  private pausedElapsed = 0;
+
   constructor(app: Application, seed?: number, spawnerConfig?: SpawnerConfig) {
     this.app = app;
     this.baseSeed = seed ?? Date.now();
@@ -150,7 +155,7 @@ export class Game {
     }
   }
 
-  private moveActiveTile(dx: number, dy: number, smooth = false): boolean {
+  private moveActiveTile(dx: number, dy: number): boolean {
     if (!this.activeTile) return false;
 
     const newX = this.activeTile.x + dx;
@@ -167,12 +172,10 @@ export class Game {
     if (dx > 0 && !this.physics.canMoveRight(this.activeTile)) return false;
 
     this.activeTile.setPosition(newX, newY);
-    if (smooth) {
-      // Gravity steps glide; player-initiated moves snap for responsiveness
-      this.activeTile.glideToGridPosition();
-    } else {
-      this.boardRenderer.updateTilePosition(this.activeTile);
-    }
+    // No sprite update here: the active tile's visual position is driven
+    // every frame by the continuous-motion block in update(). Lateral moves
+    // ease toward the new column; vertical progress is interpolated across
+    // the gravity interval.
     this.updateTouchZone();
     return true;
   }
@@ -242,6 +245,9 @@ export class Game {
     if (!this.activeTile) return;
 
     this.state = 'animating';
+    // Snap to the exact grid position - the continuous-motion presentation
+    // may have the sprite mid-ease, and merge animations target exact cells.
+    this.boardRenderer.updateTilePosition(this.activeTile);
     if (!this.board.placeTile(this.activeTile)) {
       // Should be unreachable: movement is validated before every step. If it
       // ever happens, the sprite would linger as a ghost with no grid entry,
@@ -518,6 +524,7 @@ export class Game {
     this.comboCount = 0;
 
     this.activeTile = new Tile(this.nextK, SPAWN_X, SPAWN_Y);
+    this.activeVisualX = SPAWN_X * CELL_SIZE;
     this.boardRenderer.addTileSprite(this.activeTile);
     this.boardRenderer.updateTilePosition(this.activeTile);
 
@@ -538,13 +545,15 @@ export class Game {
   private togglePause(): void {
     if (this.state === 'playing') {
       this.state = 'paused';
+      // Freeze fall progress so resuming doesn't visually rewind the tile
+      this.pausedElapsed = performance.now() - this.lastGravityTime;
       this.uiRenderer.showPause();
       this.uiRenderer.updatePauseButtonState(true);
     } else if (this.state === 'paused') {
       this.state = 'playing';
       this.uiRenderer.hidePause();
       this.uiRenderer.updatePauseButtonState(false);
-      this.lastGravityTime = performance.now();
+      this.lastGravityTime = performance.now() - this.pausedElapsed;
     }
   }
 
@@ -591,17 +600,35 @@ export class Game {
     this.spawnTile();
   }
 
-  update(_ticker: Ticker): void {
+  update(ticker: Ticker): void {
     if (this.state !== 'playing' || !this.activeTile) return;
 
     const now = performance.now();
 
     if (now - this.lastGravityTime >= this.gravityInterval) {
-      if (!this.moveActiveTile(0, TILE_SIZE, true)) {
+      if (!this.moveActiveTile(0, TILE_SIZE)) {
         this.lockActiveTile();
+        return; // tile is locked and gone; presentation resumes on next spawn
       }
       this.lastGravityTime = now;
     }
+
+    // Continuous-motion presentation: the active tile is always visibly in
+    // motion instead of hopping row to row. Vertical position interpolates
+    // linearly across the gravity interval (only while it can actually
+    // fall); horizontal eases exponentially toward the logical column.
+    // Logic stays fully grid-locked - this is presentation only.
+    const fallFraction = this.physics.canMoveDown(this.activeTile)
+      ? Math.min((performance.now() - this.lastGravityTime) / this.gravityInterval, 1)
+      : 0;
+    const targetX = this.activeTile.x * CELL_SIZE;
+    // ~40ms time constant: fast enough to feel immediate, no teleport
+    const alpha = 1 - Math.exp(-ticker.deltaMS / 40);
+    this.activeVisualX += (targetX - this.activeVisualX) * alpha;
+    if (Math.abs(targetX - this.activeVisualX) < 0.5) this.activeVisualX = targetX;
+
+    const visualY = (this.activeTile.y + fallFraction * TILE_SIZE) * CELL_SIZE;
+    this.activeTile.setVisualPosition(this.activeVisualX, visualY);
   }
 
   start(): void {
