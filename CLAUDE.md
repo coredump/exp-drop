@@ -315,9 +315,9 @@ The game supports external configuration via `public/game.config.json`. If the f
 
 ```
 Timing constants in src/utils/constants.ts:
-- GRAVITY_INTERVAL_MS = 700      // Base drop speed (k <= 2)
-- GRAVITY_RAMP_FACTOR = 0.97     // Interval multiplier per tier created
-- GRAVITY_MIN_INTERVAL_MS = 550  // Ramp floor (reached at 1024)
+- GRAVITY_INTERVAL_MS = 850      // Base drop speed (k <= 2)
+- GRAVITY_RAMP_FACTOR = 0.95     // Interval multiplier per tier created
+- GRAVITY_MIN_INTERVAL_MS = 450  // Ramp floor (reached at 32768)
 - gravityIntervalMs(k)           // Pure ramp formula - tested in constants.test.ts
 
 The ramp keys off the highest tier CREATED this run (Game.highestK,
@@ -383,7 +383,10 @@ Speeding it up adds no spatial depth whatsoever; it just puts a shrinking
 clock on the same puzzle.
 
 A steep gravity ramp (0.9/tier down to a 250ms floor) was added and then
-dialled back to 0.97 / 550ms for exactly this reason. Before proposing any
+dialled back for exactly this reason. The current envelope (850ms base,
+0.95/tier, 450ms floor) was user-tuned after continuous motion landed:
+starting slower and ramping wider-but-gently makes speed serve pacing. A
+test enforces the per-tier step stays at most 5%. Before proposing any
 "difficulty" change, check which dimension it acts on:
 
 - ✅ **Spatial** — grid height, spawn mix, `spawnLag`, tier culling, garbage

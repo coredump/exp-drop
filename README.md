@@ -33,8 +33,8 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
   never spawn directly; the last few doublings must be earned by merging
 - Higher values spawn less frequently (sliding scale); small tiles keep
   spawning no matter how far you progress
-- Tiles fall slightly faster with every new highest value you create
-  (700ms easing to 550ms) — a gentle nudge, not a race
+- Tiles start slow and fall a little faster with every new highest value
+  you create (850ms easing toward 450ms) — gentle pacing, not a race
 - Game over when any column stacks to the top of the board
 
 ### Scoring

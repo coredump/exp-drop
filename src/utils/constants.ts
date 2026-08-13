@@ -15,22 +15,22 @@ export function setGridHeight(height: number): void {
 export const SPAWN_X = Math.floor((GRID_WIDTH - TILE_SIZE) / 2 / TILE_SIZE) * TILE_SIZE;
 export const SPAWN_Y = 0;
 
-export const GRAVITY_INTERVAL_MS = 700;
-export const GRAVITY_MIN_INTERVAL_MS = 550;
-export const GRAVITY_RAMP_FACTOR = 0.97; // speed-up per tier created above k=2
+export const GRAVITY_INTERVAL_MS = 850;
+export const GRAVITY_MIN_INTERVAL_MS = 450;
+export const GRAVITY_RAMP_FACTOR = 0.95; // speed-up per tier created above k=2
 
 /**
  * Gravity interval for the highest tier the player has created this run.
  * Base tiles (k <= 2) fall at GRAVITY_INTERVAL_MS; every tier built above
  * that multiplies the interval by GRAVITY_RAMP_FACTOR, floored at
- * GRAVITY_MIN_INTERVAL_MS. 8 -> 679ms, 64 -> 620ms, 1024+ -> 550ms.
+ * GRAVITY_MIN_INTERVAL_MS. 8 -> 808ms, 64 -> 692ms, 256 -> 625ms,
+ * 1024 -> 564ms, floor from 32768.
  *
- * Deliberately gentle. exp^drop is a construction puzzle: difficulty should
- * come from running out of space, not from reaction time. Hard drop is the
- * primary input, so the fall interval mostly caps *thinking* time rather
- * than affecting where tiles land - a steep ramp turns the game into a
- * twitch test without adding any spatial depth. This is a mild nudge (~21%
- * over the whole climb to 1024), not a difficulty mechanic.
+ * Envelope chosen by feel once continuous motion landed: start slower than
+ * the old fixed 700ms and ramp up gently - each tier is at most a 5% step
+ * (guarded by a test), so speed is pacing, not a twitch mechanic. The
+ * spatial-vs-temporal design principle in CLAUDE.md still applies; a steep
+ * ramp (0.9/tier to 250ms) was tried and rejected as genre-breaking.
  */
 export function gravityIntervalMs(highestK: number): number {
   const steps = Math.max(0, highestK - 2);

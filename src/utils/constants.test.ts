@@ -13,16 +13,20 @@ describe('gravityIntervalMs()', () => {
   });
 
   it('should shrink by the ramp factor per tier created', () => {
-    expect(gravityIntervalMs(3)).toBe(679); // first 8: 700 * 0.97
-    expect(gravityIntervalMs(6)).toBe(620); // 64
+    expect(gravityIntervalMs(3)).toBe(808); // first 8: 850 * 0.95
+    expect(gravityIntervalMs(6)).toBe(692); // 64: past the old fixed 700ms
+    expect(gravityIntervalMs(10)).toBe(564); // 1024
   });
 
-  it('should stay gentle - never more than a ~25% squeeze', () => {
-    // Guards the design intent: this is a nudge, not a twitch mechanic.
-    // A steep ramp would make the game about reaction time instead of
-    // space management.
-    for (let k = 1; k < 40; k++) {
-      expect(gravityIntervalMs(k)).toBeGreaterThanOrEqual(GRAVITY_INTERVAL_MS * 0.75);
+  it('should ramp gently - at most a 5% step per tier, never below the floor', () => {
+    // Guards the design intent: speed is pacing, not a twitch mechanic
+    // (see the spatial-vs-temporal principle in CLAUDE.md). The envelope
+    // (850 -> 450) is deliberate, user-tuned; the per-tier gentleness and
+    // the floor are what must not regress.
+    for (let k = 2; k < 40; k++) {
+      const step = gravityIntervalMs(k + 1) / gravityIntervalMs(k);
+      expect(step).toBeGreaterThanOrEqual(0.94);
+      expect(gravityIntervalMs(k)).toBeGreaterThanOrEqual(GRAVITY_MIN_INTERVAL_MS);
     }
   });
 
@@ -33,7 +37,7 @@ describe('gravityIntervalMs()', () => {
   });
 
   it('should floor at the minimum interval', () => {
-    expect(gravityIntervalMs(10)).toBe(GRAVITY_MIN_INTERVAL_MS); // 1024
+    expect(gravityIntervalMs(15)).toBe(GRAVITY_MIN_INTERVAL_MS); // 32768
     expect(gravityIntervalMs(50)).toBe(GRAVITY_MIN_INTERVAL_MS);
   });
 });
