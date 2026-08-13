@@ -58,18 +58,39 @@ export function deepMerge<T extends object>(defaults: T, partial: Partial<T>): T
   return result;
 }
 
+/**
+ * URL of the config file, resolved against the deployment's base path.
+ *
+ * This MUST stay relative to BASE_URL. A root-absolute '/game.config.json'
+ * works on a dev server but 404s on GitHub Pages, where the site is served
+ * from '/exp-drop/' - and because loadConfig() falls back to DEFAULT_CONFIG
+ * on failure, the whole balance config goes silently inert in production.
+ */
+export function configUrl(baseUrl: string = import.meta.env.BASE_URL): string {
+  return `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}game.config.json`;
+}
+
 export async function loadConfig(): Promise<GameConfig> {
   try {
-    const response = await fetch('/game.config.json');
+    const response = await fetch(configUrl());
     if (!response.ok) {
-      console.warn('Config file not found, using defaults');
+      // 404 is the documented "delete the file to use defaults" path; anything
+      // else is a deployment problem worth distinguishing.
+      if (response.status === 404) {
+        console.info('No game.config.json found, using built-in defaults');
+      } else {
+        console.warn(
+          `Failed to load game.config.json (HTTP ${response.status}), using defaults. ` +
+            `Tried: ${configUrl()}`
+        );
+      }
       return DEFAULT_CONFIG;
     }
 
     const partial = (await response.json()) as Partial<GameConfig>;
     return deepMerge(DEFAULT_CONFIG, partial);
   } catch (error) {
-    console.warn('Failed to load config, using defaults:', error);
+    console.warn(`Failed to load ${configUrl()}, using defaults:`, error);
     return DEFAULT_CONFIG;
   }
 }

@@ -135,7 +135,7 @@ src/
     ├── config.ts             # Game configuration loader
     └── SeededRNG.ts          # Deterministic RNG (Mulberry32)
 
-game.config.json               # External game configuration (project root)
+public/game.config.json        # External game configuration (copied verbatim to dist/)
 ```
 
 ## Controls
@@ -195,9 +195,9 @@ When tapping on the board to drop a tile to a different column, the tile smoothl
 
 ### Game Configuration
 
-The game supports external configuration via `game.config.json` in the project root. If the file is missing or invalid, defaults are used.
+The game supports external configuration via `public/game.config.json`. If the file is missing or invalid, defaults are used.
 
-**File: `game.config.json`**
+**File: `public/game.config.json`**
 
 ```json
 {
@@ -248,6 +248,23 @@ The game supports external configuration via `game.config.json` in the project r
 - Partial configs are merged with defaults (can override single values)
 - A loading screen with "Start" button appears while config/fonts load
 - Game only initializes after user clicks Start
+
+> ⚠️ **The config must live in `public/` and be fetched relative to
+> `import.meta.env.BASE_URL`** (see `configUrl()` in `src/utils/config.ts`).
+> Both halves matter, and both were broken until 2026-08-13:
+>
+> 1. The file sat in the repo root, so Vite never copied it into `dist/` —
+>    it was simply absent from every deployment.
+> 2. `loadConfig()` fetched a root-absolute `/game.config.json`, which 404s
+>    on GitHub Pages (served from `/exp-drop/`).
+>
+> Because `loadConfig()` falls back to `DEFAULT_CONFIG` on any failure, the
+> production game silently ran defaults — wrong grid height, wrong spawn
+> weights, and tier culling **enabled** — while working perfectly in the dev
+> server (which serves the repo root). A 404 now logs `console.info` and any
+> other failure logs `console.warn`, so a deployment fault is distinguishable
+> from an intentionally absent file. Verify sub-path builds by serving `dist/`
+> under a nested directory, not just at `/`.
 
 **Implementation:**
 
@@ -536,7 +553,7 @@ memories; those facts now live in Hindsight or in this file.
 3. **Test determinism**: Use fixed seeds in tests to ensure reproducibility
 4. **Follow merge rules**: Only equal values merge (`k == k`)
 5. **Respect animation sequence**: Don't skip visual updates in the resolution chain
-6. **Update config**: Game balance parameters are in `game.config.json` (spawn weights, grid height, tier window)
+6. **Update config**: Game balance parameters are in `public/game.config.json` (spawn weights, grid height, tier window)
 7. **Update constants**: Timing and visual constants are in `src/utils/constants.ts`
 8. **Check coverage**: `npm run test:coverage` shows what needs testing
 9. **Touch zone updates**: Call `updateTouchZone()` after every tile movement/spawn

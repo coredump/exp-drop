@@ -113,7 +113,7 @@ Without Nix, install Node 24 yourself and skip the `nix develop` line.
 
 ## Configuration
 
-Customize game parameters by editing `game.config.json` in the project root:
+Customize game parameters by editing `public/game.config.json`:
 
 ```json
 {
@@ -151,7 +151,8 @@ Delete the file to use defaults. Partial configs are supported (unspecified valu
 ## Project Structure
 
 ```
-game.config.json            # Game configuration (optional)
+public/
+  game.config.json          # Game configuration (optional, copied to dist/)
 src/
   main.ts                   # Entry point, loading screen
   game/
