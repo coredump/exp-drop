@@ -22,7 +22,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   tierWindowSize: 6,
 };
 
-function deepMerge<T extends object>(defaults: T, partial: Partial<T>): T {
+export function deepMerge<T extends object>(defaults: T, partial: Partial<T>): T {
   const result = { ...defaults };
 
   for (const key in partial) {
@@ -65,18 +65,4 @@ export async function loadConfig(): Promise<GameConfig> {
     console.warn('Failed to load config, using defaults:', error);
     return DEFAULT_CONFIG;
   }
-}
-
-let cachedConfig: GameConfig | null = null;
-
-export async function getConfig(): Promise<GameConfig> {
-  cachedConfig ??= await loadConfig();
-  return cachedConfig;
-}
-
-export function getConfigSync(): GameConfig {
-  if (!cachedConfig) {
-    throw new Error('Config not loaded. Call loadConfig() first.');
-  }
-  return cachedConfig;
 }

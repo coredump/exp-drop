@@ -32,3 +32,8 @@ jobs:
 
       - name: Run quality checks
         run: nix develop -c npm run quality
+
+      # Separate from `quality` so a coverage regression is distinguishable
+      # from a lint/type/test failure at a glance.
+      - name: Check coverage thresholds
+        run: nix develop -c npm run test:coverage

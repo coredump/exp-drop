@@ -44,11 +44,6 @@ export class Tile {
     return TILE_COLORS[this.k] ?? DEFAULT_TILE_COLOR;
   }
 
-  updateExponent(newK: number): void {
-    this.k = newK;
-    this.render();
-  }
-
   setExponentWithoutRender(newK: number): void {
     this.k = newK;
   }

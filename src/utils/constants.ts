@@ -3,13 +3,8 @@ export let GRID_HEIGHT = 12; // 6 tiles tall (6 * TILE_SIZE) - configurable
 export const SPAWN_BUFFER = 2;
 export let TOTAL_HEIGHT = GRID_HEIGHT + SPAWN_BUFFER;
 
-export let CELL_SIZE = 32; // Default, can be updated dynamically
+export const CELL_SIZE = 32;
 export const TILE_SIZE = 2; // Tile occupies 2x2 grid cells
-export const GRID_PADDING = 20;
-
-export function setCellSize(size: number): void {
-  CELL_SIZE = size;
-}
 
 export function setGridHeight(height: number): void {
   GRID_HEIGHT = height;
@@ -21,8 +16,6 @@ export const SPAWN_X = Math.floor((GRID_WIDTH - TILE_SIZE) / 2 / TILE_SIZE) * TI
 export const SPAWN_Y = 0;
 
 export const GRAVITY_INTERVAL_MS = 700;
-export const SOFT_DROP_INTERVAL_MS = 70;
-export const LOCK_DELAY_MS = 100;
 
 // 80s Neon color palette - maximally distinct colors
 export const TILE_COLORS: Record<number, number> = {

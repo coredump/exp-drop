@@ -51,7 +51,7 @@ Tiles merge **only when touching tiles of equal value** (orthogonally adjacent):
 **Mobile Touch:**
 
 - **Tap on board (left/right of tile)**: Tile slides to that column with animation, then drops
-- **Tap on tile**: Soft drop (faster falling)
+- **Tap on tile**: Hard drop
 - **Tap below tile**: Hard drop
 - **Drag left/right**: Move tile by columns (grid-aligned)
 - **Pause button**: Tap "PAUSE"/"CONTINUE" button in top-right corner

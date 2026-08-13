@@ -23,36 +23,51 @@ This document is the source of truth for the game implementation.
 
 ### 2.1 Spawn Position
 
-- Spawn coordinates: `x = 4`, `y = 0` (centered, aligned to 2x2 grid)
-- Game over if spawn position is blocked
+- Spawn coordinates: `x = SPAWN_X` (4), `y = 0` (centered, aligned to 2x2 grid)
+- Game over if — and only if — that fixed spawn position is blocked
 
 ### 2.2 Dynamic Spawn System
 
-- **Base tiles**: 2 (60%) and 4 (30%) always available
+- **Base tiles**: 2 and 4 always available
 - **Unlocking**: Higher values unlock when created on the board
-- **Sliding scale**: Each tier above base has weight = previous × 0.35 (min 2%)
+- **Sliding scale**: each tier above base has weight = previous × `tierMultiplier`,
+  floored at `minWeight`
+- **Tier window**: only the most recent `tierWindowSize` tiers stay in the pool;
+  tiles below that threshold are culled from the board
 
-| Board Max | 2   | 4   | 8   | 16  | 32  |
-| --------- | --- | --- | --- | --- | --- |
-| 4         | 67% | 33% | -   | -   | -   |
-| 16        | 63% | 32% | 5%  | -   | -   |
-| 32        | 62% | 31% | 5%  | 2%  | -   |
-| 64+       | 61% | 31% | 5%  | 2%  | 2%  |
+Actual weights are config-driven. Two sets are in play — do not "fix" one to
+match the other:
+
+| Parameter        | `DEFAULT_CONFIG` (used when the file is absent) | Shipped `game.config.json` |
+| ---------------- | ----------------------------------------------- | -------------------------- |
+| `base2`          | 45                                              | 55                         |
+| `base4`          | 40                                              | 45                         |
+| `tierMultiplier` | 0.5                                             | 0.5                        |
+| `minWeight`      | 5                                               | 1                          |
+| `tierWindowSize` | 6                                               | 18                         |
+| `gridHeight`     | 12                                              | 14                         |
+
+The shipped `tierWindowSize: 18` is deliberate balance tuning: at 6, low tiers
+were culled fast enough to keep clearing the board, which made the game too
+easy. At 18 the culling path is effectively dormant (it needs a 2^19 tile), and
+that is intended. The code is retained because the threshold is config-driven.
 
 ## 3. Movement
 
 ### 3.1 Input Actions
 
 - **Left/Right**: Move 2 cells horizontally (TILE_SIZE)
-- **Soft Drop**: Move 2 cells down
 - **Hard Drop**: Instant drop to lowest valid position
 - **Pause**: Toggle pause state
 - **Restart**: Reset game
 
+> Soft drop was specified but never implemented, and was removed outright
+> rather than left as a dead action. Down / K map to hard drop.
+
 ### 3.2 Key Bindings
 
-- Arrow keys: Left, Down, Right
-- J, K, L: Left, Down, Right (vim-style)
+- Arrow keys: Left, Down (hard drop), Right
+- J, K, L: Left, Down (hard drop), Right (vim-style)
 - Space: Hard drop
 - P / Escape: Pause
 - R: Restart
@@ -60,11 +75,10 @@ This document is the source of truth for the game implementation.
 ### 3.3 Gravity
 
 - Gravity interval: **700ms**
-- Soft drop interval: **70ms**
 
 ### 3.4 Touch Controls
 
-- **Tap on tile**: Soft drop (faster falling)
+- **Tap on tile**: Hard drop
 - **Tap below tile (same column)**: Hard drop
 - **Tap on board (different column)**: Slide to column + hard drop
 - **Drag left/right**: Move tile by columns (grid-aligned)
@@ -209,7 +223,6 @@ GRID_HEIGHT = 12; // 6 tiles
 TILE_SIZE = 2; // 2x2 cells per tile
 CELL_SIZE = 32; // pixels
 GRAVITY_INTERVAL_MS = 700;
-SOFT_DROP_INTERVAL_MS = 70;
 ```
 
 ## 10. Build Commands

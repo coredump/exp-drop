@@ -1,9 +1,9 @@
+import { GRID_WIDTH, TILE_SIZE, CELL_SIZE } from '../utils/constants';
+
 export type InputAction =
   | 'left'
   | 'right'
-  | 'down'
   | 'hardDrop'
-  | 'softDrop'
   | 'pause'
   | 'restart'
   | { type: 'dropToColumn'; column: number };
@@ -20,6 +20,21 @@ export interface TouchZone {
 }
 
 export type InputCallback = (action: InputAction) => void;
+
+/**
+ * Map a screen X inside the board to a TILE_SIZE-aligned drop column.
+ * Exported for testing - it is pure and carries most of the tap-zone logic.
+ */
+export function columnActionAt(
+  touchX: number,
+  boardScreenX: number,
+  boardScreenWidth: number
+): InputAction {
+  const cellSize = boardScreenWidth / GRID_WIDTH;
+  const gridX = Math.floor((touchX - boardScreenX) / cellSize);
+  const tileGridX = Math.floor(gridX / TILE_SIZE) * TILE_SIZE;
+  return { type: 'dropToColumn', column: tileGridX };
+}
 
 export class InputHandler {
   private callback: InputCallback | null = null;
@@ -46,7 +61,7 @@ export class InputHandler {
 
   // Touch thresholds
   private readonly dragThreshold = 10;
-  private readonly columnWidth = 64; // TILE_SIZE * CELL_SIZE (2 * 32)
+  private readonly columnWidth = TILE_SIZE * CELL_SIZE;
   private readonly tapThreshold = 200;
 
   constructor() {
@@ -93,7 +108,7 @@ export class InputHandler {
       this.touchStartY = touch.clientY;
       this.touchStartTime = performance.now();
       this.isDragging = false;
-      this.lastColumnCrossed = Math.floor(touch.clientX / this.columnWidth);
+      this.lastColumnCrossed = this.columnIndexAt(touch.clientX);
     }
   }
 
@@ -116,7 +131,7 @@ export class InputHandler {
     if (!this.isDragging) return;
 
     // HORIZONTAL DRAG: Move by columns
-    const currentColumn = Math.floor(touch.clientX / this.columnWidth);
+    const currentColumn = this.columnIndexAt(touch.clientX);
     const columnDiff = currentColumn - this.lastColumnCrossed;
 
     if (columnDiff > 0) {
@@ -157,7 +172,18 @@ export class InputHandler {
     }
   }
 
-  private getTouchZoneAction(touchX: number, touchY: number): InputAction | null {
+  /**
+   * Column index of a screen X, measured from the board's left edge so drag
+   * boundaries line up with the visible columns. Falls back to raw screen
+   * coordinates only when no tile is active (nothing to move anyway).
+   */
+  private columnIndexAt(clientX: number): number {
+    const originX = this.touchZone?.boardScreenX ?? 0;
+    return Math.floor((clientX - originX) / this.columnWidth);
+  }
+
+  /** Public for testing - pure function of (x, y) and the current touch zone. */
+  getTouchZoneAction(touchX: number, touchY: number): InputAction | null {
     if (!this.touchZone) return null;
 
     const {
@@ -178,39 +204,22 @@ export class InputHandler {
       touchY < boardScreenY + boardScreenHeight;
 
     const isWithinTileWidth = touchX >= tileScreenX && touchX <= tileScreenX + tileWidth;
+    const isBelowTile = touchY > tileScreenY + tileHeight;
+    const isOnTile = touchY >= tileScreenY && !isBelowTile;
 
-    // ON TILE - soft drop
-    if (isWithinTileWidth && touchY >= tileScreenY && touchY <= tileScreenY + tileHeight) {
-      return 'softDrop';
-    }
-
-    // BELOW TILE (same column) on board - hard drop
-    if (isWithinTileWidth && touchY > tileScreenY + tileHeight && isWithinBoard) {
+    // ON TILE, or BELOW TILE within the board (same column) - hard drop
+    if (isWithinTileWidth && (isOnTile || (isBelowTile && isWithinBoard))) {
       return 'hardDrop';
     }
 
     // LEFT of tile
     if (touchX < tileScreenX) {
-      // Within board bounds = drop to that column
-      if (isWithinBoard) {
-        const cellSize = boardScreenWidth / 10; // GRID_WIDTH = 10
-        const gridX = Math.floor((touchX - boardScreenX) / cellSize);
-        const tileGridX = Math.floor(gridX / 2) * 2;
-        return { type: 'dropToColumn', column: tileGridX };
-      }
-      return 'left';
+      return isWithinBoard ? columnActionAt(touchX, boardScreenX, boardScreenWidth) : 'left';
     }
 
     // RIGHT of tile
     if (touchX > tileScreenX + tileWidth) {
-      // Within board bounds = drop to that column
-      if (isWithinBoard) {
-        const cellSize = boardScreenWidth / 10; // GRID_WIDTH = 10
-        const gridX = Math.floor((touchX - boardScreenX) / cellSize);
-        const tileGridX = Math.floor(gridX / 2) * 2;
-        return { type: 'dropToColumn', column: tileGridX };
-      }
-      return 'right';
+      return isWithinBoard ? columnActionAt(touchX, boardScreenX, boardScreenWidth) : 'right';
     }
 
     return null;

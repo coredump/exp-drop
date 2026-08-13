@@ -93,7 +93,18 @@ npm run test:coverage
 npm run test:ui
 ```
 
-**Coverage Thresholds**: 60% lines/functions, 50% branches
+**Coverage Thresholds**: 27% lines, 34% functions, 34% branches, 29% statements
+— a **ratchet pinned at the current floor**, not a target. Raise it as coverage
+improves; the long-term goal is 60/60/50/60.
+
+`vitest.config.ts` sets `coverage.include: ['src/**/*.ts']`. That line is
+load-bearing: without it v8 instruments only files a test already imports, so
+untested files vanish from the denominator entirely. (This repo previously
+reported 61% while the true figure over the whole tree was 22%.) Don't remove
+it to make the number look better.
+
+The uncovered remainder is almost entirely `Game.ts`, the two renderers, and
+`main.ts` — all of which need a PixiJS stub to reach.
 
 ### Pre-commit Hooks
 
@@ -141,7 +152,7 @@ game.config.json               # External game configuration (project root)
 
 - **Tap left of tile (on board)**: Slide tile to that column, then hard drop
 - **Tap right of tile (on board)**: Slide tile to that column, then hard drop
-- **Tap on tile**: Enable soft drop (faster falling, 70ms vs 700ms)
+- **Tap on tile**: Hard drop
 - **Tap below tile (same column)**: Hard drop
 - **Tap left of board**: Move tile one column left
 - **Tap right of board**: Move tile one column right
@@ -175,7 +186,9 @@ When tapping on the board to drop a tile to a different column, the tile smoothl
 **Important**:
 
 - Tiles move in discrete column steps during drag (not free-form)
-- Soft drop activates when tapping directly on the tile
+- There is no soft drop — it was specified but never wired up, and was removed
+  rather than left as a dead action. Every tap that isn't a column slide or an
+  off-board nudge is a hard drop.
 - Pause and restart buttons only visible on touch devices
 
 ## Key Technical Details
@@ -199,14 +212,28 @@ The game supports external configuration via `game.config.json` in the project r
 }
 ```
 
-| Parameter                     | Description                                         | Default |
-| ----------------------------- | --------------------------------------------------- | ------- |
-| `gridHeight`                  | Number of visible rows (not including spawn buffer) | 12      |
-| `spawnWeights.base2`          | Spawn weight for k=1 (value 2) tiles                | 45      |
-| `spawnWeights.base4`          | Spawn weight for k=2 (value 4) tiles                | 40      |
-| `spawnWeights.tierMultiplier` | Weight decay for each additional tier               | 0.5     |
-| `spawnWeights.minWeight`      | Minimum spawn weight for any tier                   | 5       |
-| `tierWindowSize`              | Number of tiers to keep in spawn pool               | 6       |
+| Parameter                     | Description                                         | Default | **Shipped** |
+| ----------------------------- | --------------------------------------------------- | ------- | ----------- |
+| `gridHeight`                  | Number of visible rows (not including spawn buffer) | 12      | **14**      |
+| `spawnWeights.base2`          | Spawn weight for k=1 (value 2) tiles                | 45      | **55**      |
+| `spawnWeights.base4`          | Spawn weight for k=2 (value 4) tiles                | 40      | **45**      |
+| `spawnWeights.tierMultiplier` | Weight decay for each additional tier               | 0.5     | 0.5         |
+| `spawnWeights.minWeight`      | Minimum spawn weight for any tier                   | 5       | **1**       |
+| `tierWindowSize`              | Number of tiers to keep in spawn pool               | 6       | **18**      |
+
+> ⚠️ **The shipped `game.config.json` deliberately differs from `DEFAULT_CONFIG`.
+> Do not "reconcile" them.** The values in bold are tuned balance, not drift.
+>
+> In particular `tierWindowSize: 18` is intentional: at the default of 6, low
+> tiers were culled fast enough to keep freeing board space, which made the game
+> too easy. At 18 the culling path (`Game.removeLowTierTiles`,
+> `Spawner.calculateMinTier`) is effectively dormant — it would need a 2^19 tile
+> to trigger. That code is kept, not deleted, because the threshold is
+> config-driven and the behavior is one config edit away.
+>
+> Note this means the tier-removal path is **not exercised in production**, only
+> in `Spawner.test.ts` (which constructs a window of 6 explicitly). Likewise the
+> geometry tests assume the default `gridHeight` of 12, not the shipped 14.
 
 **Loading Behavior:**
 
@@ -248,15 +275,11 @@ The game supports external configuration via `game.config.json` in the project r
 
 ```
 Timing constants in src/utils/constants.ts:
-- GRAVITY_INTERVAL_MS = 700      // Drop speed
-- SOFT_DROP_INTERVAL_MS = 70     // Fast drop speed
+- GRAVITY_INTERVAL_MS = 700      // Drop speed (the only drop speed)
 
-Spawn weights in game.config.json (or defaults):
-- spawnWeights.base2 = 45        // 2s base spawn rate
-- spawnWeights.base4 = 40        // 4s base spawn rate
-- spawnWeights.tierMultiplier = 0.5  // Decay for higher tiers
-- spawnWeights.minWeight = 5     // Minimum spawn weight
-- tierWindowSize = 6             // Tiers kept in pool
+Spawn weights: see the config table above. DEFAULT_CONFIG lives in
+src/utils/config.ts; the shipped overrides live in game.config.json and are
+deliberately different.
 ```
 
 ### Scoring Formula
@@ -313,8 +336,9 @@ comboMultiplier = 1 + (comboCount - 1) × 0.5
 
 ### Code Quality
 
-These are **warnings**, not errors — `npm run lint` exits 0 when they trip. See
-`eslint.config.js` for the authoritative values.
+These are ESLint `warn`-level rules, but `npm run lint` runs with
+`--max-warnings=0`, so **they fail the build**. See `eslint.config.js` for the
+authoritative values.
 
 - **Complexity Limit**: Max 15 cyclomatic complexity
 - **Function Length**: Max 60 lines (excluding blanks/comments)
@@ -322,20 +346,24 @@ These are **warnings**, not errors — `npm run lint` exits 0 when they trip. Se
 
 Test files (`*.test.ts`) have `complexity` and `max-lines-per-function` off.
 
-There are 6 pre-existing warnings on `main` (non-null assertions in `Game.ts`,
-complexity in `InputHandler.getTouchZoneAction` and `Physics.getNeighbors`, and
-the `UIRenderer` constructor length). Don't treat them as a regression you
-introduced.
+`main` is at **zero warnings** — treat any new one as a regression you
+introduced. Prefer extracting a helper over adding an `eslint-disable`.
 
 ### Testing
 
 - Test files: `*.test.ts` alongside source files
 - Framework: Vitest with jsdom environment
-- Coverage: Must meet 60% thresholds
+- Coverage: enforced by `npm run test:coverage`, which CI runs as its own step
+  (`npm run quality` does **not** include coverage)
+- Fully covered today: `Physics`, `Board`, `config`, `SeededRNG`
 - Focus areas:
   - Core game logic (Physics, Spawner)
   - Deterministic behavior (SeededRNG)
   - Edge cases (boundaries, collisions)
+  - Pure input mapping (`InputHandler.getTouchZoneAction`, `columnActionAt`)
+- Assert on behavior, not shape. `expect(Array.isArray(x)).toBe(true)` and
+  `expect(x).toBeDefined()` pass against broken implementations — three such
+  tests previously hid the fact that `Physics.hardDrop` always returned 0.
 
 ## Git Workflow
 

@@ -1,4 +1,4 @@
-import { GRID_WIDTH, GRID_HEIGHT, SPAWN_BUFFER, TOTAL_HEIGHT, TILE_SIZE } from '../utils/constants';
+import { GRID_WIDTH, SPAWN_BUFFER, TOTAL_HEIGHT, TILE_SIZE } from '../utils/constants';
 import { Tile } from './Tile';
 
 export class Board {
@@ -13,10 +13,6 @@ export class Board {
 
   toGridY(y: number): number {
     return y + SPAWN_BUFFER;
-  }
-
-  fromGridY(gridY: number): number {
-    return gridY - SPAWN_BUFFER;
   }
 
   getTile(x: number, y: number): Tile | null {
@@ -43,14 +39,6 @@ export class Board {
     return x >= 0 && x < GRID_WIDTH && gridY >= 0 && gridY < TOTAL_HEIGHT;
   }
 
-  isInVisibleBounds(x: number, y: number): boolean {
-    return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
-  }
-
-  canMove(x: number, y: number): boolean {
-    return this.isInBounds(x, y) && !this.isOccupied(x, y);
-  }
-
   canPlaceTile(x: number, y: number): boolean {
     for (let dy = 0; dy < TILE_SIZE; dy++) {
       for (let dx = 0; dx < TILE_SIZE; dx++) {
@@ -60,38 +48,6 @@ export class Board {
       }
     }
     return true;
-  }
-
-  isTileInBounds(x: number, y: number): boolean {
-    return (
-      x >= 0 &&
-      x + TILE_SIZE <= GRID_WIDTH &&
-      this.toGridY(y) >= 0 &&
-      this.toGridY(y + TILE_SIZE - 1) < TOTAL_HEIGHT
-    );
-  }
-
-  isTileInVisibleBounds(x: number, y: number): boolean {
-    return x >= 0 && x + TILE_SIZE <= GRID_WIDTH && y >= 0 && y + TILE_SIZE <= GRID_HEIGHT;
-  }
-
-  moveTile(fromX: number, fromY: number, toX: number, toY: number): boolean {
-    const tile = this.getTile(fromX, fromY);
-    if (!tile) return false;
-    if (!this.canMove(toX, toY)) return false;
-
-    this.setTile(fromX, fromY, null);
-    tile.setPosition(toX, toY);
-    this.setTile(toX, toY, tile);
-    return true;
-  }
-
-  removeTile(x: number, y: number): Tile | null {
-    const tile = this.getTile(x, y);
-    if (tile) {
-      this.setTile(x, y, null);
-    }
-    return tile;
   }
 
   placeTile(tile: Tile): boolean {

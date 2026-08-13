@@ -10,7 +10,6 @@ import {
   SPAWN_X,
   SPAWN_Y,
   GRAVITY_INTERVAL_MS,
-  SOFT_DROP_INTERVAL_MS,
   TILE_SIZE,
   CELL_SIZE,
   GRID_WIDTH,
@@ -36,10 +35,14 @@ export class Game {
 
   private lastGravityTime = 0;
   private gravityInterval: number = GRAVITY_INTERVAL_MS;
-  private softDropping = false;
 
   private comboCount = 0;
-  private lastDropX: number = SPAWN_X;
+
+  // Seed lineage: each restart advances deterministically from the base seed
+  // rather than jumping to wall-clock time, so a run is reproducible from
+  // (seed, runIndex) alone.
+  private readonly baseSeed: number;
+  private runIndex = 0;
 
   // Input cooldown to prevent touch events from UI buttons affecting gameplay
   private inputCooldownUntil = 0;
@@ -47,9 +50,10 @@ export class Game {
 
   constructor(app: Application, seed?: number, spawnerConfig?: SpawnerConfig) {
     this.app = app;
+    this.baseSeed = seed ?? Date.now();
     this.board = new Board();
     this.physics = new Physics(this.board);
-    this.spawner = new Spawner(seed, spawnerConfig);
+    this.spawner = new Spawner(this.baseSeed, spawnerConfig);
     this.inputHandler = new InputHandler();
     this.boardRenderer = new BoardRenderer(this.board);
     this.uiRenderer = new UIRenderer();
@@ -96,12 +100,15 @@ export class Game {
     });
     this.inputHandler.enable();
 
+    // Same 'animating' guard the keyboard path uses - without it a tap during
+    // a cascade reaches togglePause(), matches no branch, and silently does
+    // nothing.
     this.uiRenderer.setPauseButtonCallback(() => {
-      this.togglePause();
+      if (this.state !== 'animating') this.togglePause();
     });
 
     this.uiRenderer.setRestartButtonCallback(() => {
-      this.restart();
+      if (this.state !== 'animating') this.restart();
     });
   }
 
@@ -134,9 +141,6 @@ export class Game {
       case 'right':
         this.moveActiveTile(TILE_SIZE, 0);
         break;
-      case 'down':
-        this.softDrop();
-        break;
       case 'hardDrop':
         this.hardDrop();
         break;
@@ -152,12 +156,10 @@ export class Game {
     // Check bounds
     if (newX < 0 || newX + TILE_SIZE > GRID_WIDTH) return false;
 
-    // Check if can move (for vertical, move by TILE_SIZE increments)
-    if (dy > 0) {
-      for (let i = 0; i < dy; i++) {
-        if (!this.physics.canMoveDown(this.activeTile)) return false;
-      }
-    }
+    // canMoveDown() already validates a full TILE_SIZE step, so one check
+    // covers the whole move. (This used to loop `dy` times, conflating a
+    // distance with an iteration count.)
+    if (dy > 0 && !this.physics.canMoveDown(this.activeTile)) return false;
     if (dx < 0 && !this.physics.canMoveLeft(this.activeTile)) return false;
     if (dx > 0 && !this.physics.canMoveRight(this.activeTile)) return false;
 
@@ -165,14 +167,6 @@ export class Game {
     this.boardRenderer.updateTilePosition(this.activeTile);
     this.updateTouchZone();
     return true;
-  }
-
-  private softDrop(): void {
-    if (this.moveActiveTile(0, TILE_SIZE)) {
-      this.lastGravityTime = performance.now();
-    } else {
-      this.lockActiveTile();
-    }
   }
 
   private hardDrop(): void {
@@ -185,41 +179,41 @@ export class Game {
   }
 
   private dropToColumn(targetX: number): void {
-    if (!this.activeTile) return;
+    const tile = this.activeTile;
+    if (!tile) return;
 
-    // Clamp target to valid range
-    if (targetX < 0 || targetX + TILE_SIZE > GRID_WIDTH) return;
+    // Clamp target to valid range, and snap to the TILE_SIZE grid. Without the
+    // snap an odd target makes the stride-2 walk below skip past it forever.
+    const snappedX = Math.floor(targetX / TILE_SIZE) * TILE_SIZE;
+    if (snappedX < 0 || snappedX + TILE_SIZE > GRID_WIDTH) return;
 
     // If already at target column, just hard drop
-    if (this.activeTile.x === targetX) {
+    if (tile.x === snappedX) {
       this.hardDrop();
       return;
     }
 
     // Check if horizontal path is clear at current Y position
-    const currentX = this.activeTile.x;
-    const direction = targetX > currentX ? 1 : -1;
-    const canMove =
-      direction > 0
-        ? () => this.physics.canMoveRight(this.activeTile!)
-        : () => this.physics.canMoveLeft(this.activeTile!);
+    const direction = snappedX > tile.x ? 1 : -1;
+    const canMove = (): boolean =>
+      direction > 0 ? this.physics.canMoveRight(tile) : this.physics.canMoveLeft(tile);
 
     // Simulate moving step by step to check path
-    const originalX = this.activeTile.x;
+    const originalX = tile.x;
     let pathClear = true;
 
     // Move in TILE_SIZE increments
-    for (let x = currentX; x !== targetX; x += direction * TILE_SIZE) {
+    for (let x = originalX; x !== snappedX; x += direction * TILE_SIZE) {
       if (!canMove()) {
         pathClear = false;
         break;
       }
       // Temporarily move tile to check next position
-      this.activeTile.setPosition(this.activeTile.x + direction * TILE_SIZE, this.activeTile.y);
+      tile.setPosition(tile.x + direction * TILE_SIZE, tile.y);
     }
 
     // Restore original position
-    this.activeTile.setPosition(originalX, this.activeTile.y);
+    tile.setPosition(originalX, tile.y);
 
     if (!pathClear) {
       // Path is blocked, do nothing
@@ -228,8 +222,8 @@ export class Game {
 
     // Animate the horizontal movement
     this.state = 'animating';
-    this.activeTile.playHorizontalMoveAnimation(targetX, () => {
-      this.boardRenderer.updateTilePosition(this.activeTile!);
+    tile.playHorizontalMoveAnimation(snappedX, () => {
+      this.boardRenderer.updateTilePosition(tile);
       this.updateTouchZone();
       this.state = 'playing';
       this.hardDrop();
@@ -240,12 +234,23 @@ export class Game {
     if (!this.activeTile) return;
 
     this.state = 'animating';
-    this.lastDropX = this.activeTile.x;
-    this.board.placeTile(this.activeTile);
+    if (!this.board.placeTile(this.activeTile)) {
+      // Should be unreachable: movement is validated before every step. If it
+      // ever happens, the sprite would linger as a ghost with no grid entry,
+      // so fail loudly rather than silently corrupting the board.
+      console.error('placeTile rejected a locked tile at', this.activeTile.x, this.activeTile.y);
+    }
     const justPlacedTile = this.activeTile;
     this.activeTile = null;
 
-    void this.resolveWithAnimation(justPlacedTile);
+    // The resolve chain spans several awaits while state is 'animating'. An
+    // unhandled rejection here would strand the game in that state forever
+    // with all input inert, so recover explicitly.
+    void this.resolveWithAnimation(justPlacedTile).catch((error: unknown) => {
+      console.error('Board resolution failed; recovering:', error);
+      this.state = 'playing';
+      this.spawnTile();
+    });
   }
 
   private async resolveWithAnimation(justPlacedTile: Tile): Promise<void> {
@@ -302,7 +307,7 @@ export class Game {
       if (this.board.getTile(tile.x, tile.y) !== tile) break;
 
       // Try to merge with ALL matching neighbors at once
-      const mergeResult = this.physics.tryMergeForTile(tile);
+      const mergeResult = this.physics.tryMerge(tile);
 
       if (mergeResult.merged) {
         tileActive = true;
@@ -338,7 +343,7 @@ export class Game {
       if (this.board.getTile(tile.x, tile.y) !== tile) break;
 
       // Try to fall
-      if (this.physics.canTileFall(tile)) {
+      if (this.physics.canMoveDown(tile)) {
         tileActive = true;
         this.board.removeTileFromGrid(tile);
         tile.setPosition(tile.x, tile.y + TILE_SIZE);
@@ -407,8 +412,8 @@ export class Game {
     return Math.floor(basePoints * totalMultiplier);
   }
 
-  private async updateHighestTile(): Promise<boolean> {
-    const tiles = this.board.getAllTiles();
+  private async updateHighestTile(): Promise<void> {
+    const tiles = new Set(this.board.getAllTiles());
     let maxK = 1;
     for (const tile of tiles) {
       if (tile.k > maxK) {
@@ -425,26 +430,22 @@ export class Game {
     // If tier threshold changed, remove lower tier tiles from the board
     if (tierChanged) {
       await this.removeLowTierTiles(this.spawner.getMinTierK());
-      return true;
     }
-    return false;
   }
 
   /**
    * Remove tiles below the minimum tier threshold from the board.
-   * Excludes the active tile (it can still fall and merge).
    * After removal, applies gravity and triggers merge logic.
+   *
+   * Dormant with the shipped config (tierWindowSize is deliberately high, see
+   * game.config.json) - kept because the threshold is config-driven.
    */
   private async removeLowTierTiles(minK: number): Promise<void> {
-    const tiles = this.board.getAllTiles();
     const tilesToRemove: Tile[] = [];
 
     // Deduplicate tiles (each tile occupies multiple grid cells)
-    const uniqueTiles = [...new Set(tiles)];
-
-    // Find tiles below threshold (excluding active tile)
-    for (const tile of uniqueTiles) {
-      if (tile.k < minK && tile !== this.activeTile) {
+    for (const tile of new Set(this.board.getAllTiles())) {
+      if (tile.k < minK) {
         tilesToRemove.push(tile);
       }
     }
@@ -480,7 +481,10 @@ export class Game {
   }
 
   private spawnTile(): void {
-    if (!this.board.canPlaceTile(this.lastDropX, SPAWN_Y)) {
+    // Game over is decided at the fixed spawn column (SPEC 3.1). This used to
+    // test wherever the previous tile happened to land, which ended runs early
+    // whenever one column stacked up while the rest of the board was empty.
+    if (!this.board.canPlaceTile(SPAWN_X, SPAWN_Y)) {
       this.gameOver();
       return;
     }
@@ -488,7 +492,7 @@ export class Game {
     // Reset combo when new tile spawns
     this.comboCount = 0;
 
-    this.activeTile = new Tile(this.nextK, this.lastDropX, SPAWN_Y);
+    this.activeTile = new Tile(this.nextK, SPAWN_X, SPAWN_Y);
     this.boardRenderer.addTileSprite(this.activeTile);
     this.boardRenderer.updateTilePosition(this.activeTile);
 
@@ -518,6 +522,13 @@ export class Game {
   }
 
   private restart(): void {
+    // The active tile is never in the grid, so board.clear() cannot reach it.
+    // Without this it leaks its Graphics + Text on every restart.
+    if (this.activeTile) {
+      this.boardRenderer.removeTileSprite(this.activeTile);
+      this.activeTile.destroy();
+    }
+
     this.board.clear();
     this.boardRenderer.clear();
 
@@ -525,7 +536,6 @@ export class Game {
     this.score = 0;
     this.highestTile = 2;
     this.comboCount = 0;
-    this.lastDropX = SPAWN_X;
     this.state = 'playing';
     this.lastGravityTime = performance.now();
 
@@ -536,7 +546,10 @@ export class Game {
     this.uiRenderer.hidePause();
     this.uiRenderer.updateScore(0);
 
-    this.spawner.setSeed(Date.now());
+    // Advance the seed deterministically instead of reseeding from wall-clock
+    // time, so (baseSeed, runIndex) still reproduces any run exactly.
+    this.runIndex++;
+    this.spawner.setSeed(this.baseSeed + this.runIndex);
     this.spawner.resetUnlocks(); // Reset spawn tiers on restart
     this.nextK = this.spawner.getNextExponent();
     this.uiRenderer.updateNextPreview(this.nextK);
@@ -548,9 +561,8 @@ export class Game {
     if (this.state !== 'playing' || !this.activeTile) return;
 
     const now = performance.now();
-    const interval = this.softDropping ? SOFT_DROP_INTERVAL_MS : this.gravityInterval;
 
-    if (now - this.lastGravityTime >= interval) {
+    if (now - this.lastGravityTime >= this.gravityInterval) {
       if (!this.moveActiveTile(0, TILE_SIZE)) {
         this.lockActiveTile();
       }

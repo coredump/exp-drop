@@ -7,6 +7,18 @@ import {
   formatTileValue,
 } from '../utils/constants';
 
+const FONT = '"Press Start 2P", cursive';
+
+/** Linear interpolation between two 0xRRGGBB colors. */
+function lerpColor(from: number, to: number, t: number): number {
+  const channel = (shift: number): number => {
+    const a = (from >> shift) & 0xff;
+    const b = (to >> shift) & 0xff;
+    return Math.round(a + (b - a) * t);
+  };
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0);
+}
+
 export class UIRenderer {
   public container: Container;
   private scoreText: Text;
@@ -20,6 +32,7 @@ export class UIRenderer {
   private gameOverContainer: Container;
   private pauseContainer: Container;
   private multiplierTimeout: ReturnType<typeof setTimeout> | null = null;
+  private multiplierAnimationId: number | null = null;
   private pauseButton!: Container;
   private pauseButtonText!: Text;
   private pauseButtonCallback: (() => void) | null = null;
@@ -32,13 +45,7 @@ export class UIRenderer {
 
     this.scoreText = new Text({
       text: 'Score\n0',
-      style: {
-        fontFamily: '"Press Start 2P", cursive',
-        fontSize: 12,
-        fill: 0x00ffff,
-        align: 'center',
-        lineHeight: 14,
-      },
+      style: { fontFamily: FONT, fontSize: 12, fill: 0x00ffff, align: 'center', lineHeight: 14 },
     });
     this.scoreText.anchor.set(0.5, 0);
     this.container.addChild(this.scoreText);
@@ -46,7 +53,7 @@ export class UIRenderer {
     this.multiplierText = new Text({
       text: '',
       style: {
-        fontFamily: '"Press Start 2P", cursive',
+        fontFamily: FONT,
         fontSize: 16,
         fill: 0xff00ff, // Hot magenta
         stroke: { color: 0x000000, width: 3 },
@@ -62,23 +69,14 @@ export class UIRenderer {
     this.nextPreviewTile = new Graphics();
     this.nextPreviewLabel = new Text({
       text: 'NEXT',
-      style: {
-        fontFamily: '"Press Start 2P", cursive',
-        fontSize: 10,
-        fill: 0x39ff14, // Neon green
-      },
+      style: { fontFamily: FONT, fontSize: 10, fill: 0x39ff14 }, // Neon green
     });
 
     // Keybindings hint (hidden on touch devices)
     this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     this.keybindingsText = new Text({
       text: '\u2190\u2192 / JL Move\n\u2193 / K Drop\nP Pause\nR Reset',
-      style: {
-        fontFamily: '"Press Start 2P", cursive',
-        fontSize: 7,
-        fill: 0x666699,
-        lineHeight: 12,
-      },
+      style: { fontFamily: FONT, fontSize: 7, fill: 0x666699, lineHeight: 12 },
     });
     this.keybindingsText.visible = !this.isTouchDevice;
 
@@ -121,7 +119,7 @@ export class UIRenderer {
     const titleText = new Text({
       text: title,
       style: {
-        fontFamily: '"Press Start 2P", cursive',
+        fontFamily: FONT,
         fontSize: 18,
         fill: 0xff00ff, // Hot magenta
         align: 'center',
@@ -135,7 +133,7 @@ export class UIRenderer {
     const subtitleText = new Text({
       text: subtitle,
       style: {
-        fontFamily: '"Press Start 2P", cursive',
+        fontFamily: FONT,
         fontSize: 10,
         fill: 0x00ffff, // Cyan
         align: 'center',
@@ -215,9 +213,12 @@ export class UIRenderer {
     );
     this.nextPreviewTile.fill(color);
 
+    // destroy(), not just removeChild() - this runs on every spawn and every
+    // merge resolution, so an undestroyed Text leaks a texture per tile placed.
     const existingLabel = this.nextPreviewTile.children.find((c) => c instanceof Text);
     if (existingLabel) {
       this.nextPreviewTile.removeChild(existingLabel);
+      existingLabel.destroy();
     }
 
     const formatted = formatTileValue(value);
@@ -225,7 +226,7 @@ export class UIRenderer {
     const label = new Text({
       text: formatted,
       style: {
-        fontFamily: '"Press Start 2P", cursive',
+        fontFamily: FONT,
         fontSize,
         fill: 0x0d0221, // Dark text for neon backgrounds
       },
@@ -287,15 +288,21 @@ export class UIRenderer {
     this.multiplierText.alpha = 1;
     this.multiplierText.scale.set(1.5);
 
-    // Clear existing timeout
+    // Cancel any in-flight animation. Clearing only the timeout used to leave
+    // the previous rAF loop running, which then raced the new one and forced
+    // alpha to 0 mid-display on fast chains.
     if (this.multiplierTimeout) {
       clearTimeout(this.multiplierTimeout);
+      this.multiplierTimeout = null;
+    }
+    if (this.multiplierAnimationId !== null) {
+      cancelAnimationFrame(this.multiplierAnimationId);
+      this.multiplierAnimationId = null;
     }
 
     // Blinking + scale animation
     const startTime = performance.now();
     const duration = 1000;
-    let animationId: number;
 
     const animate = (): void => {
       const elapsed = performance.now() - startTime;
@@ -305,22 +312,9 @@ export class UIRenderer {
       const scale = 1.5 - 0.5 * progress;
       this.multiplierText.scale.set(scale);
 
-      // Blink effect (flash between colors)
+      // Blink effect (flash between magenta and cyan)
       const blinkCycle = Math.sin(elapsed * 0.02) * 0.5 + 0.5;
-      const color1 = 0xff00ff; // magenta
-      const color2 = 0x00ffff; // cyan
-
-      // Interpolate colors
-      const r1 = (color1 >> 16) & 0xff,
-        g1 = (color1 >> 8) & 0xff,
-        b1 = color1 & 0xff;
-      const r2 = (color2 >> 16) & 0xff,
-        g2 = (color2 >> 8) & 0xff,
-        b2 = color2 & 0xff;
-      const r = Math.round(r1 + (r2 - r1) * blinkCycle);
-      const g = Math.round(g1 + (g2 - g1) * blinkCycle);
-      const b = Math.round(b1 + (b2 - b1) * blinkCycle);
-      this.multiplierText.style.fill = (r << 16) | (g << 8) | b;
+      this.multiplierText.style.fill = lerpColor(0xff00ff, 0x00ffff, blinkCycle);
 
       // Fade out in the last 30%
       if (progress > 0.7) {
@@ -328,18 +322,23 @@ export class UIRenderer {
       }
 
       if (progress < 1) {
-        animationId = requestAnimationFrame(animate);
+        this.multiplierAnimationId = requestAnimationFrame(animate);
       } else {
+        this.multiplierAnimationId = null;
         this.multiplierText.alpha = 0;
       }
     };
 
-    animationId = requestAnimationFrame(animate);
+    this.multiplierAnimationId = requestAnimationFrame(animate);
 
-    // Store timeout to cancel animation if needed
+    // Backstop in case rAF stalls (e.g. backgrounded tab)
     this.multiplierTimeout = setTimeout(() => {
-      cancelAnimationFrame(animationId);
+      if (this.multiplierAnimationId !== null) {
+        cancelAnimationFrame(this.multiplierAnimationId);
+        this.multiplierAnimationId = null;
+      }
       this.multiplierText.alpha = 0;
+      this.multiplierTimeout = null;
     }, duration + 100);
   }
 
@@ -380,7 +379,7 @@ export class UIRenderer {
     this.pauseButtonText = new Text({
       text: 'PAUSE',
       style: {
-        fontFamily: '"Press Start 2P", cursive',
+        fontFamily: FONT,
         fontSize: 8,
         fill: 0x00ffff,
         align: 'center',
@@ -415,7 +414,7 @@ export class UIRenderer {
     const text = new Text({
       text: 'RESTART',
       style: {
-        fontFamily: '"Press Start 2P", cursive',
+        fontFamily: FONT,
         fontSize: 10,
         fill: 0x39ff14,
         align: 'center',

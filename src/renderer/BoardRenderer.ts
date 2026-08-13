@@ -34,11 +34,6 @@ export class BoardRenderer {
     return GRID_HEIGHT * CELL_SIZE;
   }
 
-  redraw(): void {
-    this.drawGrid();
-    this.updateAllTiles();
-  }
-
   private drawGrid(): void {
     this.gridGraphics.clear();
 
@@ -76,8 +71,9 @@ export class BoardRenderer {
   }
 
   updateAllTiles(): void {
-    const tiles = this.board.getAllTiles();
-    for (const tile of tiles) {
+    // getAllTiles() yields one entry per occupied *cell*, so a 2x2 tile appears
+    // four times. Dedupe before repositioning to avoid 4x redundant work.
+    for (const tile of new Set(this.board.getAllTiles())) {
       this.updateTilePosition(tile);
     }
   }

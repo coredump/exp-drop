@@ -113,32 +113,91 @@ describe('Physics', () => {
     });
   });
 
+  describe('tryMerge() multi-neighbour', () => {
+    it('should absorb ALL matching neighbours at once (k + n)', () => {
+      // Centre tile with three equal neighbours: left, right, below
+      const centre = new Tile(3, 4, 4);
+      const left = new Tile(3, 2, 4);
+      const right = new Tile(3, 6, 4);
+      const below = new Tile(3, 4, 6);
+      [centre, left, right, below].forEach((t) => board.placeTile(t));
+
+      const result = physics.tryMerge(centre);
+
+      expect(result.merged).toBe(true);
+      expect(result.tilesAbsorbed).toBe(3);
+      expect(result.upgradedTile).toBe(centre);
+      expect(centre.k).toBe(6); // 3 + 3 absorbed
+      expect(result.basePoints).toBe(2 ** 6);
+      expect(result.removedTiles.map((r) => r.tile)).toEqual(
+        expect.arrayContaining([left, right, below])
+      );
+      // Absorbed tiles are gone from the grid
+      expect(board.getTile(2, 4)).toBeNull();
+      expect(board.getTile(6, 4)).toBeNull();
+      expect(board.getTile(4, 6)).toBeNull();
+    });
+
+    it('should ignore non-matching neighbours while absorbing matching ones', () => {
+      const centre = new Tile(2, 4, 4);
+      const matching = new Tile(2, 2, 4);
+      const different = new Tile(5, 6, 4);
+      [centre, matching, different].forEach((t) => board.placeTile(t));
+
+      const result = physics.tryMerge(centre);
+
+      expect(result.tilesAbsorbed).toBe(1);
+      expect(centre.k).toBe(3);
+      expect(board.getTile(6, 4)).toBe(different); // untouched
+    });
+
+    it('should not merge diagonally adjacent equal tiles', () => {
+      const centre = new Tile(2, 4, 4);
+      const diagonal = new Tile(2, 6, 6);
+      board.placeTile(centre);
+      board.placeTile(diagonal);
+
+      expect(physics.tryMerge(centre).merged).toBe(false);
+    });
+  });
+
   describe('applyGravity()', () => {
-    it('should return tiles that moved', () => {
-      const tile = new Tile(1, 4, 4);
+    it('should drop a floating tile to the floor and report it once', () => {
+      const tile = new Tile(1, 4, 4); // floating well above the floor
       board.placeTile(tile);
 
       const movedTiles = physics.applyGravity();
 
-      expect(Array.isArray(movedTiles)).toBe(true);
+      // GRID_HEIGHT=12, TILE_SIZE=2 -> lowest resting y is 10
+      expect(tile.y).toBe(10);
+      expect(board.getTile(4, 10)).toBe(tile);
+      expect(board.getTile(4, 4)).toBeNull();
+      // Deduplicated: one entry despite falling three rows
+      expect(movedTiles).toEqual([tile]);
     });
-  });
 
-  describe('hardDrop()', () => {
-    it('should return the distance dropped', () => {
-      const tile = new Tile(1, 4, 2); // Start at y=2
+    it('should stack tiles without overlapping', () => {
+      const lower = new Tile(1, 4, 6);
+      const upper = new Tile(2, 4, 2);
+      board.placeTile(lower);
+      board.placeTile(upper);
+
+      physics.applyGravity();
+
+      expect(lower.y).toBe(10);
+      expect(upper.y).toBe(8); // resting directly on top of `lower`
+    });
+
+    it('should report nothing when every tile is already settled', () => {
+      const tile = new Tile(1, 4, 10);
       board.placeTile(tile);
 
-      const distance = physics.hardDrop(tile);
-
-      // hardDrop returns the distance moved (should be >= 0)
-      expect(distance).toBeGreaterThanOrEqual(0);
-      expect(typeof distance).toBe('number');
+      expect(physics.applyGravity()).toEqual([]);
     });
   });
 
   describe('resolveBoard()', () => {
-    it('should handle merges', () => {
+    it('should merge, award 2^newK, and settle the result on the floor', () => {
       const tile1 = new Tile(2, 4, 4);
       const tile2 = new Tile(2, 4, 6);
       board.placeTile(tile1);
@@ -146,8 +205,29 @@ describe('Physics', () => {
 
       const result = physics.resolveBoard();
 
-      expect(result.merges).toBeDefined();
-      expect(result.totalPoints).toBeGreaterThanOrEqual(0);
+      expect(result.merges).toHaveLength(1);
+      expect(result.merges[0].tilesAbsorbed).toBe(1);
+      expect(result.totalPoints).toBe(2 ** 3); // k=2 + 1 absorbed -> k=3
+      // Survivor fell to the floor after the merge
+      expect(tile1.k).toBe(3);
+      expect(tile1.y).toBe(10);
+    });
+
+    it('should cascade: a merge result that merges again', () => {
+      // Two 4s stack into an 8, which lands beside an existing 8 -> 16
+      const a = new Tile(2, 4, 4);
+      const b = new Tile(2, 4, 6);
+      const existing8 = new Tile(3, 6, 10);
+      [a, b, existing8].forEach((t) => board.placeTile(t));
+
+      const result = physics.resolveBoard();
+
+      expect(result.merges.length).toBeGreaterThanOrEqual(2);
+      // Final survivor is a 16 (k=4)
+      const survivors = [...new Set(board.getAllTiles())];
+      expect(survivors).toHaveLength(1);
+      expect(survivors[0].k).toBe(4);
+      expect(result.totalPoints).toBe(2 ** 3 + 2 ** 4);
     });
 
     it('should return zero points when no merges possible', () => {
@@ -157,6 +237,7 @@ describe('Physics', () => {
       const result = physics.resolveBoard();
 
       expect(result.totalPoints).toBe(0);
+      expect(result.merges).toEqual([]);
     });
   });
 });

@@ -21,6 +21,13 @@ export interface ResolutionResult {
   totalPoints: number;
 }
 
+export interface Neighbors {
+  down: Tile | null;
+  left: Tile | null;
+  right: Tile | null;
+  up: Tile | null;
+}
+
 export class Physics {
   private board: Board;
 
@@ -65,42 +72,28 @@ export class Physics {
     return true;
   }
 
-  getNeighbors(tile: Tile): {
-    down: Tile | null;
-    left: Tile | null;
-    right: Tile | null;
-    up: Tile | null;
-  } {
-    let down: Tile | null = null;
-    let left: Tile | null = null;
-    let right: Tile | null = null;
-    let up: Tile | null = null;
+  getNeighbors(tile: Tile): Neighbors {
+    return {
+      down: this.findNeighbor(tile, 0, TILE_SIZE),
+      left: this.findNeighbor(tile, -TILE_SIZE, 0),
+      right: this.findNeighbor(tile, TILE_SIZE, 0),
+      up: this.findNeighbor(tile, 0, -TILE_SIZE),
+    };
+  }
 
-    // Check down (row below the tile's bottom edge)
-    for (let dx = 0; dx < TILE_SIZE && !down; dx++) {
-      const neighbor = this.board.getTile(tile.x + dx, tile.y + TILE_SIZE);
-      if (neighbor && neighbor !== tile) down = neighbor;
+  /**
+   * First distinct tile touching `tile` along one orthogonal direction.
+   * Scans the shared edge (the axis the offset does not move along), so a 2x2
+   * tile is found no matter which of its cells lines up.
+   */
+  private findNeighbor(tile: Tile, dx: number, dy: number): Tile | null {
+    for (let i = 0; i < TILE_SIZE; i++) {
+      const x = tile.x + dx + (dx === 0 ? i : 0);
+      const y = tile.y + dy + (dy === 0 ? i : 0);
+      const neighbor = this.board.getTile(x, y);
+      if (neighbor && neighbor !== tile) return neighbor;
     }
-
-    // Check left (column to the left of tile's left edge)
-    for (let dy = 0; dy < TILE_SIZE && !left; dy++) {
-      const neighbor = this.board.getTile(tile.x - TILE_SIZE, tile.y + dy);
-      if (neighbor && neighbor !== tile) left = neighbor;
-    }
-
-    // Check right (column to the right of tile's right edge)
-    for (let dy = 0; dy < TILE_SIZE && !right; dy++) {
-      const neighbor = this.board.getTile(tile.x + TILE_SIZE, tile.y + dy);
-      if (neighbor && neighbor !== tile) right = neighbor;
-    }
-
-    // Check up (row above the tile's top edge)
-    for (let dx = 0; dx < TILE_SIZE && !up; dx++) {
-      const neighbor = this.board.getTile(tile.x + dx, tile.y - TILE_SIZE);
-      if (neighbor && neighbor !== tile) up = neighbor;
-    }
-
-    return { down, left, right, up };
+    return null;
   }
 
   tryMerge(tileA: Tile): MergeResult {
@@ -155,8 +148,13 @@ export class Physics {
     };
   }
 
+  /**
+   * Settle every floating tile. Returns each tile that moved, deduplicated —
+   * a tile falling N rows is one entry, not N, so callers animating per-tile
+   * don't pay N times the delay.
+   */
   applyGravity(): Tile[] {
-    const movedTiles: Tile[] = [];
+    const movedTiles = new Set<Tile>();
     let moved = true;
 
     // Keep applying gravity until nothing moves
@@ -169,46 +167,17 @@ export class Physics {
 
       for (const tile of uniqueTiles) {
         // Check if this tile can fall by TILE_SIZE
-        if (this.canTileFallTo(tile, tile.y + TILE_SIZE)) {
+        if (this.canMoveDown(tile)) {
           this.board.removeTileFromGrid(tile);
           tile.setPosition(tile.x, tile.y + TILE_SIZE);
           this.board.placeTile(tile);
-          movedTiles.push(tile);
+          movedTiles.add(tile);
           moved = true;
         }
       }
     }
 
-    return movedTiles;
-  }
-
-  private canTileFallTo(tile: Tile, newY: number): boolean {
-    for (let dx = 0; dx < TILE_SIZE; dx++) {
-      for (let dy = 0; dy < TILE_SIZE; dy++) {
-        const checkY = newY + dy;
-        if (!this.board.isInBounds(tile.x + dx, checkY)) return false;
-        const occupant = this.board.getTile(tile.x + dx, checkY);
-        if (occupant && occupant !== tile) return false;
-      }
-    }
-    return true;
-  }
-
-  tryMergeForTile(tile: Tile): MergeResult {
-    return this.tryMerge(tile);
-  }
-
-  canTileFall(tile: Tile): boolean {
-    const newY = tile.y + TILE_SIZE;
-    for (let dx = 0; dx < TILE_SIZE; dx++) {
-      for (let dy = 0; dy < TILE_SIZE; dy++) {
-        const checkY = newY + dy;
-        if (!this.board.isInBounds(tile.x + dx, checkY)) return false;
-        const occupant = this.board.getTile(tile.x + dx, checkY);
-        if (occupant && occupant !== tile) return false;
-      }
-    }
-    return true;
+    return [...movedTiles];
   }
 
   doMergePass(): ResolutionResult {
@@ -268,14 +237,5 @@ export class Physics {
       // Left-to-right: lower x first
       return a.x - b.x;
     });
-  }
-
-  hardDrop(tile: Tile): number {
-    let distance = 0;
-    while (this.board.canMove(tile.x, tile.y + 1)) {
-      this.board.moveTile(tile.x, tile.y, tile.x, tile.y + 1);
-      distance++;
-    }
-    return distance;
   }
 }
