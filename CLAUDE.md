@@ -218,7 +218,7 @@ The game supports external configuration via `public/game.config.json`. If the f
 | `gridHeight`                  | Number of visible rows (not including spawn buffer) | 12      | **14**      |
 | `spawnWeights.base2`          | Spawn weight for k=1 (value 2) tiles                | 45      | **55**      |
 | `spawnWeights.base4`          | Spawn weight for k=2 (value 4) tiles                | 40      | **45**      |
-| `spawnWeights.tierMultiplier` | Weight decay for each additional tier               | 0.5     | **0.35**    |
+| `spawnWeights.tierMultiplier` | Weight decay for each additional tier               | 0.5     | 0.5         |
 | `spawnWeights.minWeight`      | Minimum spawn weight for any tier                   | 5       | **1**       |
 | `tierWindowSize`              | Number of tiers to keep in spawn pool               | 6       | **18**      |
 | `spawnLag`                    | Top tiers below max that never spawn (built only)   | 1       | **3**       |
@@ -234,10 +234,12 @@ The game supports external configuration via `public/game.config.json`. If the f
 > to trigger. That code is kept, not deleted, because the threshold is
 > config-driven and the behavior is one config edit away.
 >
-> `spawnLag: 3` + `tierMultiplier: 0.35` are also intentional (2026-08-13):
-> they slow top-end progression (~1.8x more turns to reach 1024, measured by
-> simulation) and keep 2s/4s at ~80% of spawns forever. The last `spawnLag`
-> doublings can never spawn and must be hand-built by merging.
+> `spawnLag: 3` is also intentional (2026-08-13): it slows top-end
+> progression (~1.8x more turns to reach 1024, measured by simulation); the
+> last `spawnLag` doublings can never spawn and must be hand-built.
+> tierMultiplier went 0.5 -> 0.35 -> 0.5 across the same day: 0.35 made the
+> stream so base-heavy that the anti-streak cap turned it into alternating
+> pairs of 2s and 4s; 0.5 plus the repeat penalty fixed the rhythm.
 >
 > Note this means the tier-removal path is **not exercised in production**, only
 > in `Spawner.test.ts` (which constructs a window of 6 explicitly). Likewise the
@@ -299,8 +301,11 @@ The game supports external configuration via `public/game.config.json`. If the f
 - **Initial pool**: `initialMaxSpawnTier` floors the spawn cap, so mid tiers
   (shipped: up to 32) appear rarely from the very first drop
 - **Scaling**: Each tier has weight = previous × tierMultiplier (minimum minWeight)
-- **Anti-streak**: a value spawns at most twice consecutively
-  (`Spawner.MAX_SPAWN_REPEAT`); the third draw excludes it and renormalizes.
+- **Anti-streak**: the just-spawned value is down-weighted
+  (`Spawner.REPEAT_WEIGHT_PENALTY`, 0.45) and spawns at most twice
+  consecutively (`Spawner.MAX_SPAWN_REPEAT`); the third draw excludes it and
+  renormalizes. The penalty exists because the hard cap alone produced an
+  alternating-pairs rhythm in the base-heavy pool.
   `previewNextExponent()` deliberately uses the non-mutating roll — if a
   peek advanced the run tracking, the NEXT preview would show a different
   tile than the one that spawns

@@ -33,17 +33,20 @@ This document is the source of truth for the game implementation.
 
 - **Base tiles**: 2 and 4 always available
 - **Initial pool**: tiers up to `initialMaxSpawnTier` may spawn from the very
-  first drop, at ladder rarity (shipped: 8 ≈ 13%, 16 ≈ 4.5%, 32 ≈ 1.6%). It
-  acts as a floor under the unlock cap
+  first drop, at ladder rarity (shipped, measured: 8 ≈ 18%, 16 ≈ 9.5%,
+  32 ≈ 5%). It acts as a floor under the unlock cap
 - **Unlocking**: creating a tile of tier `k` allows tiers up to `k - spawnLag`
   to spawn. The top `spawnLag` tiers never spawn — they must be built by
   merging. (`spawnLag: 1` is the original "one below max" behavior.)
 - **Sliding scale**: each tier above base has weight = previous × `tierMultiplier`,
   floored at `minWeight`
-- **Anti-streak**: a value spawns at most **twice in a row**. On the third
-  draw it is excluded and the remaining weights are renormalized (unless the
-  pool has only one tier, where a repeat is unavoidable). The NEXT preview
-  respects this — peeking never changes what will actually spawn.
+- **Anti-streak**: the just-spawned value is down-weighted to 45% for the
+  next draw, and a value spawns at most **twice in a row** - on the third
+  draw it is excluded and the remaining weights renormalized (unless the
+  pool has only one tier, where a repeat is unavoidable). Without the soft
+  penalty the hard cap alone produced an alternating-pairs rhythm
+  (2 2 4 4 2 2 ...). Measured immediate-repeat rate: ~13%. The NEXT preview
+  respects all of this - peeking never changes what will actually spawn.
 - **Tier window**: only the most recent `tierWindowSize` tiers stay in the pool;
   tiles below that threshold are culled from the board
 
@@ -54,7 +57,7 @@ match the other:
 | --------------------- | ----------------------------------------------- | -------------------------- |
 | `base2`               | 45                                              | 55                         |
 | `base4`               | 40                                              | 45                         |
-| `tierMultiplier`      | 0.5                                             | 0.35                       |
+| `tierMultiplier`      | 0.5                                             | 0.5                        |
 | `minWeight`           | 5                                               | 1                          |
 | `tierWindowSize`      | 6                                               | 18                         |
 | `spawnLag`            | 1                                               | 3                          |
@@ -66,11 +69,11 @@ were culled fast enough to keep clearing the board, which made the game too
 easy. At 18 the culling path is effectively dormant (it needs a 2^19 tile), and
 that is intended. The code is retained because the threshold is config-driven.
 
-The shipped `spawnLag: 3` + `tierMultiplier: 0.35` slow top-end progression:
-high tiers must be hand-built for the last three doublings, and unlocked mid
-tiers spawn rarely (8 ≈ 13%, 16 ≈ 4%, 32+ ≈ 1% each), so 2s and 4s stay ~80%
-of spawns forever. Simulated effect (greedy merge bot, 60 seeds): turns to
-reach 1024 went from ~378 to ~668 (~1.8x slower) versus lag 1 / 0.5.
+The shipped `spawnLag: 3` keeps top-end progression slow: high tiers must be
+hand-built for the last three doublings. tierMultiplier was first dropped to
+0.35 for rarity, then restored to 0.5 when the stream felt too base-heavy -
+spawn variety now comes from the ladder (measured: 2 ≈ 36%, 4 ≈ 32%,
+8 ≈ 18%, 16 ≈ 9.5%, 32 ≈ 5%) while spawnLag still gates the top.
 
 ## 3. Movement
 

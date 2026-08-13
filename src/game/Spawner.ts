@@ -13,6 +13,16 @@ export class Spawner {
   /** A value may spawn at most this many times consecutively. */
   private static readonly MAX_SPAWN_REPEAT = 2;
 
+  /**
+   * Weight multiplier applied to the just-spawned value on the next draw.
+   * The hard MAX_SPAWN_REPEAT cap alone produced an "alternating pairs"
+   * rhythm (2 2 4 4 2 2 ...) in the base-tile-dominated pool: repeats were
+   * likely until the cap forced a switch, which usually landed on the other
+   * base value. Discouraging the immediate repeat softly breaks that rhythm
+   * and gives the rest of the pool more room.
+   */
+  private static readonly REPEAT_WEIGHT_PENALTY = 0.45;
+
   private rng: SeededRNG;
   private maxUnlockedK = 2; // Start with 2 and 4 available
   private minTierK = 1; // Minimum tier that can spawn (increases when higher tiers unlock)
@@ -130,9 +140,10 @@ export class Spawner {
   }
 
   /**
-   * Weighted roll with anti-streak: after MAX_SPAWN_REPEAT identical spawns
-   * in a row, that value is excluded from the pool (weights renormalized over
-   * the rest), so the same number never spawns three times consecutively.
+   * Weighted roll with anti-streak: the just-spawned value is down-weighted
+   * by REPEAT_WEIGHT_PENALTY, and after MAX_SPAWN_REPEAT identical spawns in
+   * a row it is excluded outright (weights renormalized over the rest), so
+   * the same number never spawns three times consecutively.
    * Reads run-tracking state but never writes it - previewNextExponent()
    * depends on that.
    */
@@ -144,6 +155,10 @@ export class Spawner {
       // Degenerate configs can leave a single-tier pool; a forced repeat
       // beats returning nothing.
       if (filtered.length > 0) weights = filtered;
+    } else if (this.spawnRun >= 1) {
+      weights = weights.map((w) =>
+        w.k === this.lastSpawnedK ? { k: w.k, weight: w.weight * Spawner.REPEAT_WEIGHT_PENALTY } : w
+      );
     }
 
     const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);

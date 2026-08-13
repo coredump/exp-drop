@@ -124,8 +124,9 @@ describe('Spawner', () => {
   });
 
   describe('initialMaxSpawnTier', () => {
+    // Mirrors the shipped game.config.json
     const cfg = (initialMaxSpawnTier: number): SpawnerConfig => ({
-      spawnWeights: { base2: 55, base4: 45, tierMultiplier: 0.35, minWeight: 1 },
+      spawnWeights: { base2: 55, base4: 45, tierMultiplier: 0.5, minWeight: 1 },
       tierWindowSize: 18,
       spawnLag: 3,
       initialMaxSpawnTier,
@@ -148,14 +149,15 @@ describe('Spawner', () => {
       expect(spawns.has(6)).toBe(false); // 64 stays locked
     });
 
-    it('should keep the initial mid tiers rare', () => {
+    it('should keep the initial mid tiers a minority', () => {
       const s = new Spawner(42, cfg(5));
       let high = 0;
       const n = 3000;
       for (let i = 0; i < n; i++) if (s.getNextExponent() >= 4) high++;
-      // 16s + 32s together ~6% by ladder weights; allow slack for the
+      // 16s + 32s together ~12% by ladder weights; allow slack for the
       // anti-streak redistribution
-      expect(high / n).toBeLessThan(0.12);
+      expect(high / n).toBeLessThan(0.2);
+      expect(high / n).toBeGreaterThan(0.06);
     });
 
     it('should act as a floor: created tiers still extend the pool past it', () => {
@@ -206,6 +208,28 @@ describe('Spawner', () => {
         expect(secondPreview).toBe(previewed); // peeking is idempotent
         expect(s.getNextExponent()).toBe(previewed);
       }
+    });
+
+    it('should not settle into an alternating-pairs rhythm', () => {
+      // Regression for "2 2 4 4 2 2 ...": with only a hard cap, repeats were
+      // likely until the cap forced a switch, producing pairs of one value
+      // then pairs of the other. The soft repeat penalty must keep the
+      // immediate-repeat rate well below the unpenalized ~36%.
+      const s = new Spawner(42, {
+        spawnWeights: { base2: 55, base4: 45, tierMultiplier: 0.5, minWeight: 1 },
+        tierWindowSize: 18,
+        spawnLag: 3,
+        initialMaxSpawnTier: 5,
+      });
+      const n = 4000;
+      let last = 0;
+      let repeats = 0;
+      for (let i = 0; i < n; i++) {
+        const k = s.getNextExponent();
+        if (k === last) repeats++;
+        last = k;
+      }
+      expect(repeats / n).toBeLessThan(0.24);
     });
 
     it('should reset the run tracking on resetUnlocks()', () => {
