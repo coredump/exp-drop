@@ -1,6 +1,6 @@
 # SPEC.md - exp^drop (Technical Specification)
 
-> Vibecoded from zero using [Factory Droid](https://factory.ai/) and Claude.
+> Agent-assisted development — built from zero with [Factory Droid](https://factory.ai/) and Claude.
 
 This document is the source of truth for the game implementation.
 
