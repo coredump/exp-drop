@@ -2,7 +2,7 @@
 
 A retro 80s-styled browser puzzle game where tiles with power-of-two values fall into a grid. Match equal tiles to merge them and climb to higher values!
 
-> Agent-assisted development — built from zero with [Factory Droid](https://factory.ai/) and Claude.
+> Agent-assisted development — built from zero with Claude.
 
 ## Gameplay
 

@@ -1,6 +1,6 @@
 # SPEC.md - exp^drop (Technical Specification)
 
-> Agent-assisted development — built from zero with [Factory Droid](https://factory.ai/) and Claude.
+> Agent-assisted development — built from zero with Claude.
 
 This document is the source of truth for the game implementation.
 
